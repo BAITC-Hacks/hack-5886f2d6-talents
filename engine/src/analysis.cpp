@@ -117,6 +117,78 @@ struct Node {
 };
 struct Edge { std::size_t src, dst; double sum; std::int64_t count; };
 
+// Fixed-ranking structural experiments on the observed graph. Direction is
+// ignored only for connectivity; amounts and edge counts retain directed edges.
+json resilience(const std::vector<Node>& nodes, const std::vector<Edge>& edges,
+                const std::vector<std::size_t>& priority_order,
+                const std::vector<double>& volumes) {
+    double total_sum = 0;
+    for (const auto& edge : edges) {
+        total_sum += edge.sum;
+        if (!std::isfinite(total_sum)) fail("Resilience total edge amount overflow");
+    }
+    const auto scenario = [&](const char* strategy, std::size_t requested_k,
+                              const std::vector<std::size_t>& order) {
+        std::vector<bool> removed(nodes.size(), false), visited(nodes.size(), false);
+        json removed_gids = json::array();
+        const auto count = std::min(requested_k, nodes.size());
+        for (std::size_t i = 0; i < count; ++i) {
+            removed[order[i]] = true;
+            removed_gids.push_back(nodes[order[i]].gid);
+        }
+        const auto remaining_nodes = nodes.size() - count;
+        std::size_t components = 0, isolated = 0, largest = 0, remaining_edges = 0;
+        double removed_sum = 0;
+        for (const auto& edge : edges) {
+            if (removed[edge.src] || removed[edge.dst]) removed_sum += edge.sum;
+            else ++remaining_edges;
+        }
+        if (!std::isfinite(removed_sum)) fail("Resilience removed edge amount overflow");
+        std::vector<std::size_t> queue;
+        queue.reserve(nodes.size());
+        for (std::size_t start = 0; start < nodes.size(); ++start) {
+            if (removed[start] || visited[start]) continue;
+            ++components;
+            queue.clear(); queue.push_back(start); visited[start] = true;
+            const auto visit = [&](std::size_t next) {
+                if (!removed[next] && !visited[next]) {
+                    visited[next] = true;
+                    queue.push_back(next);
+                }
+            };
+            for (std::size_t head = 0; head < queue.size(); ++head) {
+                const auto current = queue[head];
+                for (const auto next : nodes[current].incoming) visit(next);
+                for (const auto next : nodes[current].outgoing) visit(next);
+            }
+            largest = std::max(largest, queue.size());
+            // A singleton component, even with a loop, has no external peers.
+            if (queue.size() == 1) ++isolated;
+        }
+        return json{{"strategy", strategy}, {"requested_k", requested_k},
+            {"removed_gids", removed_gids}, {"remaining_nodes", remaining_nodes},
+            {"remaining_edges", remaining_edges}, {"weak_components", components},
+            {"isolated_nodes", isolated}, {"largest_component_nodes", largest},
+            {"largest_component_share_remaining", remaining_nodes == 0 ? 0.0 :
+                static_cast<double>(largest) / static_cast<double>(remaining_nodes)},
+            {"removed_edge_sum_kzt", removed_sum},
+            {"removed_edge_sum_share", total_sum == 0 ? 0.0 : bounded(removed_sum / total_sum)}};
+    };
+    std::vector<std::size_t> volume_order(nodes.size());
+    std::iota(volume_order.begin(), volume_order.end(), 0);
+    // Node indices are already in numeric gid order, including signed int64s.
+    std::stable_sort(volume_order.begin(), volume_order.end(), [&](std::size_t a, std::size_t b) {
+        return volumes[a] > volumes[b];
+    });
+    json scenarios = json::array();
+    for (const std::size_t k : {1, 3, 5, 10})
+        scenarios.push_back(scenario("priority", k, priority_order));
+    for (const std::size_t k : {1, 3, 5, 10})
+        scenarios.push_back(scenario("volume", k, volume_order));
+    return {{"schema_version", "1.0"}, {"connectivity", "weak"}, {"scope", "observed_graph"},
+        {"baseline", scenario("baseline", 0, priority_order)}, {"scenarios", scenarios}};
+}
+
 json next_actions(const Node& n, bool boundary, const std::string& role) {
     json actions = json::array();
     // Put missing observations before role verification. Self-transfers are
@@ -452,6 +524,7 @@ json analyze(const json& input, const json& config) {
         {"engine", std::string("money-graph-cpp/") + ENGINE_VERSION}, {"nodes", results}, {"top_nodes", top},
         {"meta", {{"node_count", nodes.size()}, {"edge_count", edges.size()}, {"seed_count", seed_count},
             {"role_counts", role_counts}, {"config", config},
+            {"resilience", resilience(nodes, edges, order, volumes)},
             {"role_score_semantics", "Heuristic rule strength, not calibrated probability"},
             {"priority_semantics", "Review priority, not probability of wrongdoing"},
             {"limitations", json::array({"Directed reachability is not proof of provenance or time-ordered money flow",

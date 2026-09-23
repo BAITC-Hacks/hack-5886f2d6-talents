@@ -1,6 +1,6 @@
 {
-  "engine": "money-graph-cpp/1.2.0",
-  "engine_version": "1.2.0",
+  "engine": "money-graph-cpp/1.3.0",
+  "engine_version": "1.3.0",
   "meta": {
     "config": {
       "boundary_role_multiplier": 0.8,
@@ -35,6 +35,168 @@
     ],
     "node_count": 6,
     "priority_semantics": "Review priority, not probability of wrongdoing",
+    "resilience": {
+      "baseline": {
+        "isolated_nodes": 1,
+        "largest_component_nodes": 5,
+        "largest_component_share_remaining": 0.8333333333333334,
+        "remaining_edges": 4,
+        "remaining_nodes": 6,
+        "removed_edge_sum_kzt": 0.0,
+        "removed_edge_sum_share": 0.0,
+        "removed_gids": [],
+        "requested_k": 0,
+        "strategy": "baseline",
+        "weak_components": 2
+      },
+      "connectivity": "weak",
+      "scenarios": [
+        {
+          "isolated_nodes": 5,
+          "largest_component_nodes": 1,
+          "largest_component_share_remaining": 0.2,
+          "remaining_edges": 0,
+          "remaining_nodes": 5,
+          "removed_edge_sum_kzt": 65000.0,
+          "removed_edge_sum_share": 1.0,
+          "removed_gids": [
+            "4"
+          ],
+          "requested_k": 1,
+          "strategy": "priority",
+          "weak_components": 5
+        },
+        {
+          "isolated_nodes": 3,
+          "largest_component_nodes": 1,
+          "largest_component_share_remaining": 0.3333333333333333,
+          "remaining_edges": 0,
+          "remaining_nodes": 3,
+          "removed_edge_sum_kzt": 65000.0,
+          "removed_edge_sum_share": 1.0,
+          "removed_gids": [
+            "4",
+            "3",
+            "5"
+          ],
+          "requested_k": 3,
+          "strategy": "priority",
+          "weak_components": 3
+        },
+        {
+          "isolated_nodes": 1,
+          "largest_component_nodes": 1,
+          "largest_component_share_remaining": 1.0,
+          "remaining_edges": 0,
+          "remaining_nodes": 1,
+          "removed_edge_sum_kzt": 65000.0,
+          "removed_edge_sum_share": 1.0,
+          "removed_gids": [
+            "4",
+            "3",
+            "5",
+            "2",
+            "1"
+          ],
+          "requested_k": 5,
+          "strategy": "priority",
+          "weak_components": 1
+        },
+        {
+          "isolated_nodes": 0,
+          "largest_component_nodes": 0,
+          "largest_component_share_remaining": 0.0,
+          "remaining_edges": 0,
+          "remaining_nodes": 0,
+          "removed_edge_sum_kzt": 65000.0,
+          "removed_edge_sum_share": 1.0,
+          "removed_gids": [
+            "4",
+            "3",
+            "5",
+            "2",
+            "1",
+            "99"
+          ],
+          "requested_k": 10,
+          "strategy": "priority",
+          "weak_components": 0
+        },
+        {
+          "isolated_nodes": 5,
+          "largest_component_nodes": 1,
+          "largest_component_share_remaining": 0.2,
+          "remaining_edges": 0,
+          "remaining_nodes": 5,
+          "removed_edge_sum_kzt": 65000.0,
+          "removed_edge_sum_share": 1.0,
+          "removed_gids": [
+            "4"
+          ],
+          "requested_k": 1,
+          "strategy": "volume",
+          "weak_components": 5
+        },
+        {
+          "isolated_nodes": 3,
+          "largest_component_nodes": 1,
+          "largest_component_share_remaining": 0.3333333333333333,
+          "remaining_edges": 0,
+          "remaining_nodes": 3,
+          "removed_edge_sum_kzt": 65000.0,
+          "removed_edge_sum_share": 1.0,
+          "removed_gids": [
+            "4",
+            "3",
+            "2"
+          ],
+          "requested_k": 3,
+          "strategy": "volume",
+          "weak_components": 3
+        },
+        {
+          "isolated_nodes": 1,
+          "largest_component_nodes": 1,
+          "largest_component_share_remaining": 1.0,
+          "remaining_edges": 0,
+          "remaining_nodes": 1,
+          "removed_edge_sum_kzt": 65000.0,
+          "removed_edge_sum_share": 1.0,
+          "removed_gids": [
+            "4",
+            "3",
+            "2",
+            "1",
+            "5"
+          ],
+          "requested_k": 5,
+          "strategy": "volume",
+          "weak_components": 1
+        },
+        {
+          "isolated_nodes": 0,
+          "largest_component_nodes": 0,
+          "largest_component_share_remaining": 0.0,
+          "remaining_edges": 0,
+          "remaining_nodes": 0,
+          "removed_edge_sum_kzt": 65000.0,
+          "removed_edge_sum_share": 1.0,
+          "removed_gids": [
+            "4",
+            "3",
+            "2",
+            "1",
+            "5",
+            "99"
+          ],
+          "requested_k": 10,
+          "strategy": "volume",
+          "weak_components": 0
+        }
+      ],
+      "schema_version": "1.0",
+      "scope": "observed_graph"
+    },
     "role_counts": {
       "consolidator": 1,
       "peripheral": 5

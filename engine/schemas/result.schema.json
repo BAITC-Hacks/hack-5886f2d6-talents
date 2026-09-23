@@ -9,13 +9,65 @@
     "engine": {"type": "string", "description": "Legacy Python identification alias; added in engine 1.1.0"},
     "nodes": {"type": "array", "items": {"$ref": "#/$defs/node"}},
     "top_nodes": {"type": "array", "maxItems": 20, "items": {"$ref": "#/$defs/top_node"}},
-    "meta": {"type": "object"}
+    "meta": {
+      "type": "object",
+      "properties": {"resilience": {"$ref": "#/$defs/resilience"}}
+    }
   },
   "$defs": {
     "gid": {"type": "string", "pattern": "^(0|[1-9][0-9]*|-[1-9][0-9]*)$"},
     "score": {"type": "number", "minimum": 0, "maximum": 1},
     "explanation": {"type": "string", "minLength": 1, "maxLength": 200},
     "role": {"enum": ["consolidator", "transit", "distributor", "terminal", "coordinator", "peripheral"]},
+    "resilience_scenario": {
+      "type": "object",
+      "required": ["strategy", "requested_k", "removed_gids", "remaining_nodes", "remaining_edges", "weak_components", "isolated_nodes", "largest_component_nodes", "largest_component_share_remaining", "removed_edge_sum_kzt", "removed_edge_sum_share"],
+      "properties": {
+        "strategy": {"enum": ["baseline", "priority", "volume"]},
+        "requested_k": {"type": "integer", "minimum": 0},
+        "removed_gids": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/gid"}},
+        "remaining_nodes": {"type": "integer", "minimum": 0},
+        "remaining_edges": {"type": "integer", "minimum": 0},
+        "weak_components": {"type": "integer", "minimum": 0},
+        "isolated_nodes": {"type": "integer", "minimum": 0},
+        "largest_component_nodes": {"type": "integer", "minimum": 0},
+        "largest_component_share_remaining": {"$ref": "#/$defs/score"},
+        "removed_edge_sum_kzt": {"type": "number", "minimum": 0},
+        "removed_edge_sum_share": {"$ref": "#/$defs/score"}
+      }
+    },
+    "resilience": {
+      "description": "Added in engine 1.3.0; optional for older v1 results. Fixed-ranking structural experiment on the observed graph, not prevented losses.",
+      "type": "object",
+      "required": ["schema_version", "connectivity", "scope", "baseline", "scenarios"],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "connectivity": {"const": "weak"},
+        "scope": {"const": "observed_graph"},
+        "baseline": {
+          "allOf": [{"$ref": "#/$defs/resilience_scenario"}],
+          "properties": {
+            "strategy": {"const": "baseline"}, "requested_k": {"const": 0},
+            "removed_gids": {"maxItems": 0},
+            "removed_edge_sum_kzt": {"const": 0}, "removed_edge_sum_share": {"const": 0}
+          }
+        },
+        "scenarios": {
+          "type": "array", "minItems": 8, "maxItems": 8,
+          "items": {"$ref": "#/$defs/resilience_scenario"},
+          "prefixItems": [
+            {"$ref": "#/$defs/resilience_scenario", "properties": {"strategy": {"const": "priority"}, "requested_k": {"const": 1}}},
+            {"$ref": "#/$defs/resilience_scenario", "properties": {"strategy": {"const": "priority"}, "requested_k": {"const": 3}}},
+            {"$ref": "#/$defs/resilience_scenario", "properties": {"strategy": {"const": "priority"}, "requested_k": {"const": 5}}},
+            {"$ref": "#/$defs/resilience_scenario", "properties": {"strategy": {"const": "priority"}, "requested_k": {"const": 10}}},
+            {"$ref": "#/$defs/resilience_scenario", "properties": {"strategy": {"const": "volume"}, "requested_k": {"const": 1}}},
+            {"$ref": "#/$defs/resilience_scenario", "properties": {"strategy": {"const": "volume"}, "requested_k": {"const": 3}}},
+            {"$ref": "#/$defs/resilience_scenario", "properties": {"strategy": {"const": "volume"}, "requested_k": {"const": 5}}},
+            {"$ref": "#/$defs/resilience_scenario", "properties": {"strategy": {"const": "volume"}, "requested_k": {"const": 10}}}
+          ]
+        }
+      }
+    },
     "node": {
       "type": "object",
       "required": ["gid", "cluster_id", "role", "role_score", "priority_score", "evidence", "why", "features", "role_candidates", "priority_breakdown", "warnings"],
