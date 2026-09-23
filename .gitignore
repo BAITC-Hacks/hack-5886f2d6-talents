@@ -1,12 +1,23 @@
+# Local C++ builds and generated validation output
 /engine/build*/
 /engine/.venv/
 /engine/test-output/
-__pycache__/
 
+# Python environments and caches
+__pycache__/
+*.py[cod]
 .pytest_cache/
 .venv/
+
+# Local pipeline output and binaries (the verified UI bundle stays tracked)
 build/
 out/
 out-demo/
 *.exe
 /frontend/public/data/core.*.log
+
+# Operating-system metadata from extracted archives
+__MACOSX/
+.DS_Store
+Thumbs.db
+Desktop.ini

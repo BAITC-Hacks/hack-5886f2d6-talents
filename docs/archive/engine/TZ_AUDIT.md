@@ -52,7 +52,7 @@ Python Армана, включая новый коммит `4a9c671`, и исп
 - Изменение кластерных текстов не изменило input.json, result.json,
   nodes_roles.csv или top_nodes.csv по сравнению с прогоном до исправления.
 
-Машинный отчёт: [reports/full-tz-audit.json](../../../engine/reports/full-tz-audit.json).
+Машинный отчёт: [reports/full-tz-audit.json](reports/full-tz-audit.json).
 Предыдущая проверка новой копии и сборки с нуля: [CLEAN_CHECK.md](CLEAN_CHECK.md).
 
 ## Что исправлено в этом аудите
