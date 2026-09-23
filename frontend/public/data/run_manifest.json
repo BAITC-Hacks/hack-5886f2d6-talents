@@ -3,7 +3,7 @@
   "status": "complete",
   "demo": false,
   "engine": "cpp-1.1.0",
-  "elapsed_worker_seconds": 2.328,
+  "elapsed_worker_seconds": 2.25,
   "counts": {
     "nodes": 2248,
     "edges": 3119,
@@ -33,7 +33,7 @@
     "edges.parquet": "4e71dde5cd3115bcb26e91202665532ee6581cf8233a9fc8059ea59fb7358a38",
     "transactions.parquet": "c30c5317b5439591dde86f2058dc47a3d19b2900c055ded994fe547f6fb7e7da"
   },
-  "engine_sha256": "2f11636b7fe7019682e590ba05022ad86f362b4848bf52ca7dc5d75c0202426c",
+  "engine_sha256": "db68dec6a08ee58e05e7eeed9a52c214181afddcec4f7621ca7471a113a6c04d",
   "engine_version": "1.1.0",
   "engine_config": {
     "boundary_role_multiplier": 0.8,

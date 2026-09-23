@@ -82,6 +82,8 @@ def verify_bundle(out: Path, *, data: Path | None = None, core: Path | None = No
     nodes = index(graph['nodes'], 'gid', 'graph nodes')
     require(set(nodes) == set(sources) == set(results), 'graph/input/result node coverage differs')
     for gid, node in nodes.items():
+        require(('next_actions' in node) == ('next_actions' in results[gid]),
+                f'graph node {gid}: next_actions presence differs from result')
         for key, value in {**sources[gid], **results[gid]}.items():
             require(key in node and node[key] == value, f'graph node {gid}: lost or changed field {key}')
     expected_edges = [{'id': e['src']+':'+e['dst'], **e} for e in payload['edges']]

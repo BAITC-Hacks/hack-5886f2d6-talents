@@ -33,7 +33,12 @@
           "properties": {"role": {"$ref": "#/$defs/role"}, "score": {"$ref": "#/$defs/score"}}
         }},
         "priority_breakdown": {"type": "object"},
-        "warnings": {"type": "array", "items": {"type": "string"}}
+        "warnings": {"type": "array", "items": {"type": "string"}},
+        "next_actions": {
+          "type": "array",
+          "description": "Optional analyst checks from the engine; preserve order and text. Absence and an empty array are valid.",
+          "items": {"type": "string", "minLength": 1, "pattern": "\\S"}
+        }
       }
     },
     "top_node": {

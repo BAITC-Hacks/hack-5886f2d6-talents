@@ -213,6 +213,7 @@ def test_external_core_boundary(data, tmp_path, monkeypatch, mode):
             assert output_path.parent != out and not output_path.exists()
             if mode in ('success', 'bad_coverage'):
                 result = cpp_result(strict_json(input_path))
+                result['nodes'][0]['next_actions'] = ['Запросить недостающие входящие переводы.']
                 if mode == 'bad_coverage': result['nodes'].pop()
                 write_json(output_path, result)
 
@@ -226,7 +227,13 @@ def test_external_core_boundary(data, tmp_path, monkeypatch, mode):
                            core_timeout=20, top=20, core_config=None)
     if mode == 'success':
         pipeline.worker(args)
-        assert len(strict_json(out/'graph.json')['nodes']) == 4
+        graph = strict_json(out/'graph.json')
+        assert len(graph['nodes']) == 4
+        result = strict_json(out/'result.json')
+        checked = {n['gid']: n for n in graph['nodes']}[result['nodes'][0]['gid']]
+        assert checked['next_actions'] == result['nodes'][0]['next_actions']
+        from verify_outputs import verify_bundle
+        verify_bundle(out, data=raw, core=tmp_path/'core.exe')
     else:
         with pytest.raises((RuntimeError, ValueError)):
             pipeline.worker(args)
@@ -278,6 +285,40 @@ def test_cpp_cluster_and_top_validation(data):
     wrong['nodes'][0].pop('warnings')
     with pytest.raises(ValueError, match='schema'):
         validate_result(wrong, payload)
+
+
+@pytest.mark.parametrize('demo', [False, True])
+def test_optional_next_actions_preserved_without_changing_csv(data, tmp_path, demo):
+    payload = payload_for(data)
+    result = score(payload) if demo else cpp_result(payload)
+    legacy = export_outputs(payload, validate_result(result, payload, demo=demo), tmp_path,
+                            'fixture', demo, engine_result=result)
+    assert all('next_actions' not in n for n in legacy['nodes'])
+    original_csv = {name: (tmp_path/name).read_bytes() for name in CSV_COLUMNS}
+    actions = ['Запросить продолжение исходящих за depth=4.',
+               'Сопоставить даты входящих и исходящих; проверить порядок и интервалы.']
+    result['nodes'].reverse()  # Results are joined by gid, never by array position.
+    result['nodes'][0]['next_actions'] = actions
+    result['nodes'][1]['next_actions'] = []
+    graph = export_outputs(payload, validate_result(result, payload, demo=demo), tmp_path,
+                           'fixture', demo, engine_result=result)
+    saved = strict_json(tmp_path/'graph.json')
+    by_gid = {n['gid']: n for n in saved['nodes']}
+    assert by_gid[result['nodes'][0]['gid']]['next_actions'] == actions
+    assert by_gid[result['nodes'][1]['gid']]['next_actions'] == []
+    assert 'next_actions' not in by_gid[result['nodes'][2]['gid']]
+    assert graph['top_nodes'] == legacy['top_nodes']
+    assert {name: (tmp_path/name).read_bytes() for name in CSV_COLUMNS} == original_csv
+
+
+@pytest.mark.parametrize('demo', [False, True])
+@pytest.mark.parametrize('actions', [None, 'Проверить переводы', 17, {}, [17], [None], [{}], [''], [' \t\n ']])
+def test_invalid_next_actions_rejected(data, demo, actions):
+    payload = payload_for(data)
+    result = score(payload) if demo else cpp_result(payload)
+    result['nodes'][0]['next_actions'] = actions
+    with pytest.raises(ValueError):
+        validate_result(result, payload, demo=demo)
 
 
 def test_numeric_ties_and_ui_fields(tmp_path):

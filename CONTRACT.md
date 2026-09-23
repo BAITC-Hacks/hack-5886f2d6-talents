@@ -14,19 +14,32 @@ gid/src/dst — каноническая десятичная строка signe
 
 Корень: schema_version, engine_version, nodes, top_nodes, meta. Каждый узел содержит gid, cluster_id, role, role_score, priority_score, evidence, why, features, role_candidates, priority_breakdown, warnings. Полный перечень типов: [result.schema.json](engine/schemas/result.schema.json).
 
+Необязательное поле узла `next_actions: string[]` — следующие проверки аналитика,
+сформированные ядром. Отсутствие поля и пустой массив допустимы. Если поле есть,
+оно должно быть массивом непустых строк (строка из пробелов не считается действием).
+Python сохраняет текст и порядок без изменений; лимит 200 символов для evidence/why
+к действиям не применяется. Версия схемы остаётся `1.0`, старые результаты совместимы.
+Пример и передача задачи команде: [NEXT_ACTIONS.md](team/arman/NEXT_ACTIONS.md).
+
 Python проверяет схему, полный набор уникальных gid, неизменность cluster_id и топ-20. Объединение по gid; позиции массивов значения не имеют. Роли, оценки и объяснения C++ сохраняются без пересчёта и округления. Для более длинного топа Python сортирует все результаты по priority_score убыванию и числовому gid возрастанию.
 
 ## graph.json → Савелию
 
 Корень: schema_version, meta, nodes, edges, clusters, top_nodes.
 
-- nodes: плоские поля входа + проверенные поля C++ по gid, включая features, role_candidates, priority_breakdown, warnings. Дополнительные metrics/flags сохраняются для совместимости; UI использует плоские поля.
+- nodes: плоские поля входа + проверенные поля C++ по gid, включая features, role_candidates, priority_breakdown, warnings и next_actions, если поле было в результате. Дополнительные metrics/flags сохраняются для совместимости; UI использует плоские поля.
 - edges: исходные направленные рёбра + `id=src+":"+dst`. Для Cytoscape преобразовать src/dst в source/target, сохраняя строковый тип.
 - clusters: cluster_id, n_nodes, n_seed, sum_kzt_internal, top_gids (массив строк, до 5 лидеров), hypothesis.
 - top_nodes: rank, gid, role, priority_score, why. Равные приоритеты упорядочиваются по числовому gid. На полном датасете минимум 20.
 - meta: сведения Python и ядра, `engine=cpp-<engine_version>`, `engine_version`, `config`, `is_demo=false` для реального прогона. Полная исходная meta ядра дополнительно сохранена в engine_meta. Ограничения Python — в limitations.
 
 Для Python-demo: engine=python-demo-v1, is_demo=true. Синтетические примеры также всегда имеют is_demo=true, даже если для них запускался настоящий C++. Поле demo — совместимый с ранним прототипом дубль индикатора. UI должен явно показывать демонстрационный режим.
+
+`next_actions` не добавляется в три обязательных CSV и `top_nodes`. Для карточки
+клиента UI берёт его из `nodes` по строковому gid. Старый пакет без этого поля
+по-прежнему загружается; отсутствие рекомендаций не означает отсутствие риска.
+`verify_outputs.py` проверяет совпадение наличия поля, текста и порядка между
+result.json и graph.json, даже если SHA-256 изменённых файлов пересчитаны.
 
 Исходные in/out_kzt включают петли; features.observed_* ядра их исключают. Не смешивать эти показатели в одной подписи. role_score — сила признаков роли, priority_score — приоритет проверки. Все выводы — гипотезы.
 

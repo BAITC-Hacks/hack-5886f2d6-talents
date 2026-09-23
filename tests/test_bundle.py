@@ -135,3 +135,31 @@ def test_exact_downloads_over_http(bundle):
         assert len(report['http_urls_checked']) == len(PUBLIC_FILES)
     finally:
         server.shutdown(); server.server_close(); thread.join(timeout=5)
+
+
+@pytest.mark.parametrize('mutation', ['lost', 'changed', 'reordered', 'invented'])
+def test_next_actions_must_match_engine_even_with_valid_hashes(bundle, mutation):
+    payload = strict_json(bundle/'input.json')
+    result = strict_json(bundle/'result.json')
+    if mutation != 'invented':
+        result['nodes'][0]['next_actions'] = [
+            'Запросить входящие вне выборки.', 'Сопоставить даты переводов.']
+        write_json(bundle/'result.json', result)
+        rehash(bundle, 'result.json')
+    graph = export_outputs(payload, validate_result(result, payload, demo=True), bundle,
+                           result['engine'], True, engine_result=result)
+    rehash(bundle, 'graph.json')
+    verify_bundle(bundle, allow_demo=True)
+    node = next(n for n in graph['nodes'] if n['gid'] == result['nodes'][0]['gid'])
+    if mutation == 'lost':
+        node.pop('next_actions')
+    elif mutation == 'changed':
+        node['next_actions'][0] = 'Другой текст.'
+    elif mutation == 'reordered':
+        node['next_actions'].reverse()
+    else:
+        node['next_actions'] = ['Действие, которого нет в результате ядра.']
+    write_json(bundle/'graph.json', graph)
+    rehash(bundle, 'graph.json')
+    with pytest.raises(ValueError, match='next_actions'):
+        verify_bundle(bundle, allow_demo=True)

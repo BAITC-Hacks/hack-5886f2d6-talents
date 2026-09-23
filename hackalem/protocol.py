@@ -102,6 +102,11 @@ def validate_result(result, payload, *, demo=False):
         if expected[gid]['flags']['truncated_by_depth'] and n['role'] == 'terminal':
             raise ValueError(f'{gid}: terminal role forbidden at truncated depth boundary')
         fields = ['gid', 'role', 'role_score', 'priority_score', 'evidence', 'why']
+        if 'next_actions' in n:
+            actions = n['next_actions']
+            if not isinstance(actions, list) or any(not isinstance(a, str) or not a.strip() for a in actions):
+                raise ValueError(f'{gid}: next_actions must be an array of nonempty strings')
+            fields.append('next_actions')
         if not demo:
             if type(n['cluster_id']) is not int or n['cluster_id'] != expected[gid]['cluster_id']:
                 raise ValueError(f'{gid}: result cluster_id differs from Python input')
