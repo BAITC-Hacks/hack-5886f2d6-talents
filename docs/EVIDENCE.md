@@ -72,7 +72,7 @@ seed против 9 у priority и выбирает клиентов из 8 кл
 
 ```powershell
 & .\engine\build.ps1
-& .\engine\.venv\Scripts\python.exe engine/tests/benchmark_benefit.py --engine engine/build/engine.exe --require-engine-resilience --runs 5
+python engine/tests/benchmark_benefit.py --engine engine/build/engine.exe --require-engine-resilience --runs 5
 ```
 
 Скрипт использует только стандартную библиотеку Python. По исходным рёбрам
@@ -94,7 +94,7 @@ SHA-256 использованного input.json:
 Для проверки существующего result.json без запуска ядра:
 
 ```powershell
-& .\engine\.venv\Scripts\python.exe engine/tests/benchmark_benefit.py --result frontend/public/data/result.json
+python engine/tests/benchmark_benefit.py --result frontend/public/data/result.json
 ```
 
 Если пакет ещё содержит ядро 1.2, расчёт сравнения доступен, но проверка поля C++
