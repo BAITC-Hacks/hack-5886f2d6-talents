@@ -163,3 +163,59 @@ def test_next_actions_must_match_engine_even_with_valid_hashes(bundle, mutation)
     rehash(bundle, 'graph.json')
     with pytest.raises(ValueError, match='next_actions'):
         verify_bundle(bundle, allow_demo=True)
+
+
+def add_resilience(out):
+    from hackalem.resilience_reference import calculate_resilience
+    payload, result = [strict_json(out/name) for name in ('input.json', 'result.json')]
+    result.setdefault('meta', {})['resilience'] = calculate_resilience(
+        payload, {n['gid']: n for n in result['nodes']})
+    write_json(out/'result.json', result)
+    graph = export_outputs(payload, validate_result(result, payload, demo=True), out,
+                           result['engine'], True, engine_result=result)
+    for name in ('result.json', 'graph.json'):
+        rehash(out, name)
+    return graph
+
+
+@pytest.mark.parametrize('location', ['meta', 'engine_meta'])
+@pytest.mark.parametrize('mutation', ['lost', 'changed', 'reordered', 'invented', 'null', 'bool_count'])
+def test_resilience_copies_must_match_result_even_with_valid_hashes(bundle, location, mutation):
+    graph = add_resilience(bundle)
+    assert verify_bundle(bundle, allow_demo=True)['resilience_scenarios_checked'] == 8
+    if mutation == 'invented':
+        result = strict_json(bundle/'result.json')
+        result['meta'].pop('resilience')
+        write_json(bundle/'result.json', result)
+        rehash(bundle, 'result.json')
+    else:
+        target = graph['meta'] if location == 'meta' else graph['meta']['engine_meta']
+        # Break the shared in-memory reference before testing one copy at a time.
+        target['resilience'] = json.loads(json.dumps(target['resilience']))
+        experiment = target['resilience']
+        if mutation == 'lost': target.pop('resilience')
+        elif mutation == 'changed': experiment['scenarios'][0]['removed_edge_sum_kzt'] += 1
+        elif mutation == 'reordered': experiment['scenarios'].reverse()
+        elif mutation == 'null': target['resilience'] = None
+        elif mutation == 'bool_count': experiment['baseline']['isolated_nodes'] = True
+        write_json(bundle/'graph.json', graph)
+        rehash(bundle, 'graph.json')
+    with pytest.raises(ValueError, match='resilience'):
+        verify_bundle(bundle, allow_demo=True)
+
+
+@pytest.mark.parametrize('field', ['weak_components', 'removed_edge_sum_kzt',
+                                  'largest_component_share_remaining', 'removed_edge_sum_share'])
+def test_networkx_catches_wrong_calculations_in_all_copies(bundle, field):
+    add_resilience(bundle)
+    result = strict_json(bundle/'result.json')
+    scenario = result['meta']['resilience']['scenarios'][0]
+    scenario[field] = (1 if scenario[field] != 1 else 2) if field == 'weak_components' else (0 if scenario[field] else 1)
+    payload = strict_json(bundle/'input.json')
+    export_outputs(payload, validate_result(result, payload, demo=True), bundle,
+                   result['engine'], True, engine_result=result)
+    write_json(bundle/'result.json', result)
+    for name in ('graph.json', 'result.json'):
+        rehash(bundle, name)
+    with pytest.raises(ValueError, match='resilience'):
+        verify_bundle(bundle, allow_demo=True)

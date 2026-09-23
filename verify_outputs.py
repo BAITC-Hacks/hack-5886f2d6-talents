@@ -11,6 +11,7 @@ from pathlib import Path
 from urllib.request import urlopen
 
 from hackalem.protocol import strict_json, validate_result
+from hackalem.resilience import validate_resilience
 
 PUBLIC_FILES = ('graph.json', 'nodes_roles.csv', 'clusters.csv', 'top_nodes.csv',
                 'validation.json', 'run_manifest.json')
@@ -78,6 +79,20 @@ def verify_bundle(out: Path, *, data: Path | None = None, core: Path | None = No
     require(graph.get('schema_version') == '1.0' and graph['meta'].get('is_demo') is demo
             and graph['meta'].get('demo') is demo, 'graph demo flags disagree with manifest')
     results = validate_result(result, payload, demo=demo)
+    engine_meta = result.get('meta', {})
+    has_resilience = 'resilience' in engine_meta
+    for label, meta in (('graph.meta', graph['meta']),
+                        ('graph.meta.engine_meta', graph['meta'].get('engine_meta', {}))):
+        require(isinstance(meta, dict), f'{label} must be an object')
+        require(('resilience' in meta) == has_resilience,
+                f'{label}: resilience presence differs from result')
+        if has_resilience:
+            validate_resilience(meta['resilience'], payload)
+            require(meta['resilience'] == engine_meta['resilience'],
+                    f'{label}: resilience lost or changed from result')
+    if has_resilience:
+        from hackalem.resilience_reference import verify_resilience
+        verify_resilience(engine_meta['resilience'], payload, results)
     sources = index(payload['nodes'], 'gid', 'input nodes')
     nodes = index(graph['nodes'], 'gid', 'graph nodes')
     require(set(nodes) == set(sources) == set(results), 'graph/input/result node coverage differs')
@@ -172,6 +187,7 @@ def verify_bundle(out: Path, *, data: Path | None = None, core: Path | None = No
             require(downloaded == (out/name).read_bytes(), f'HTTP payload differs: {url}')
             urls.append(url)
     return {'status': 'passed', 'engine_version': manifest.get('engine_version'), 'is_demo': demo,
+            'resilience_scenarios_checked': 8 if has_resilience else 0,
             'counts': manifest['counts'], 'manifest_sha256': sha256(out/'run_manifest.json'),
             'validated_artifact_count': len(hashes), 'source_hashes_checked': data is not None,
             'engine_hash_checked': core is not None, 'http_urls_checked': urls}

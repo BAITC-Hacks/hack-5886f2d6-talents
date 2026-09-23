@@ -14,6 +14,38 @@ import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parent
+PUBLICATION_TIMEOUT = 3.0
+PUBLICATION_RETRY_DELAY = 0.05
+
+
+def publish_outputs(stage, out, deadline):
+    """Publish a bundle within one shared retry budget, committing its manifest last."""
+    publication_deadline = time.monotonic() + min(PUBLICATION_TIMEOUT, deadline - time.time())
+
+    def remaining():
+        return min(publication_deadline - time.monotonic(), deadline - time.time())
+
+    for path in sorted(stage.iterdir(), key=lambda p: (p.name == 'run_manifest.json', p.name)):
+        last_error = None
+        while True:
+            if remaining() <= 0:
+                raise TimeoutError(f'publication time budget exhausted at {path.name}') from last_error
+            try:
+                os.replace(path, out/path.name)
+            except OSError as exc:
+                # Do not retry POSIX permission errors or unrelated Windows I/O errors.
+                if getattr(exc, 'winerror', None) not in (5, 32, 33):
+                    raise
+                last_error = exc
+                delay = min(PUBLICATION_RETRY_DELAY, remaining())
+                if delay <= 0:
+                    raise TimeoutError(f'publication time budget exhausted at {path.name}') from exc
+                time.sleep(delay)
+            else:
+                # os.replace cannot be interrupted locally; detect even a slow final commit.
+                if remaining() <= 0:
+                    raise TimeoutError(f'publication time budget exhausted at {path.name}')
+                break
 
 
 def worker(args):
@@ -89,9 +121,8 @@ def worker(args):
         manifest['artifact_sha256'] = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
                                        for p in stage.iterdir() if p.suffix in ('.csv', '.json')}
         write_json(stage/'run_manifest.json', manifest)
-        # Publish manifest last: consumers can verify hashes before accepting a bundle.
-        for path in sorted(stage.iterdir(), key=lambda p: (p.name == 'run_manifest.json', p.name)):
-            os.replace(path, out/path.name)
+        # Consumers must still verify hashes before accepting a complete bundle.
+        publish_outputs(stage, out, args.deadline)
         print(json.dumps({'status': 'complete', 'out': str(out), **manifest['counts'],
                           'demo': args.demo, 'seconds': manifest['elapsed_worker_seconds']}, ensure_ascii=True))
 
