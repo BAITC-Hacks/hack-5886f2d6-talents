@@ -21,6 +21,7 @@ Python проверяет схему, полный набор уникальны
 Корень: schema_version, meta, nodes, edges, clusters, top_nodes.
 
 - nodes: плоские поля входа + проверенные поля C++ по gid, включая features, role_candidates, priority_breakdown, warnings. Дополнительные metrics/flags сохраняются для совместимости; UI использует плоские поля.
+- `nodes[].next_actions?: string[]`: UI готов показать следующие действия ядра в исходном порядке; поле необязательно, `[]` допустим. На этапе этой интеграции его ещё нет в поставке C++ 1.1.0. Неверный тип отклоняется; правила действий во фронтенде не вычисляются.
 - edges: исходные направленные рёбра + `id=src+":"+dst`. Для Cytoscape преобразовать src/dst в source/target, сохраняя строковый тип.
 - clusters: cluster_id, n_nodes, n_seed, sum_kzt_internal, top_gids (массив строк, до 5 лидеров), hypothesis.
 - top_nodes: rank, gid, role, priority_score, why. Равные приоритеты упорядочиваются по числовому gid. На полном датасете минимум 20.
