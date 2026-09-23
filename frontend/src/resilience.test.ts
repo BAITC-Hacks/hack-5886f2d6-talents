@@ -1,3 +1,5 @@
+import { parseGraph } from './data';
+import { counted } from './explanations';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createElement } from 'react';
@@ -37,7 +39,7 @@ test('preserves all eight prepared scenarios and their differing outcomes withou
     const selected = resilienceScenario(data, strategy, k);
     assert.deepEqual(selected, raw.scenarios.find(item => item.strategy === strategy && item.requested_k === k));
     const html = renderToStaticMarkup(createElement(ResilienceComparison, { baseline: data.baseline, scenario: selected }));
-    assert.ok(html.includes(`${selected.largest_component_nodes} клиентов`));
+    assert.ok(html.includes(counted(selected.largest_component_nodes, 'клиент', 'клиента', 'клиентов')));
     assert.ok(html.includes('среди оставшихся клиентов'));
   }
   assert.equal(resilienceScenario(data, 'priority', 1).largest_component_nodes, 1);
@@ -103,4 +105,13 @@ test('renders analyst labels, original client links and the complete limitation 
     'среди оставшихся клиентов', 'без учёта направления переводов', 'Показать исходный граф',
     `Открыть карточку клиента ${gids[0]}`, resilienceCaveat, 'Фактически исключено: 1.']) assert.ok(html.includes(text), text);
   assert.ok(!html.includes('лучше')); assert.ok(!html.includes('предотвращённый ущерб'));
+});
+
+
+test('parseGraph retains resilience, preserves legacy absence and rejects malformed supplied metadata', () => {
+  const raw = { schema_version: '1.0', meta: { is_demo: true, resilience: empty() }, nodes: [], edges: [], clusters: [], top_nodes: [] };
+  assert.deepEqual(parseGraph(raw).meta.resilience, raw.meta.resilience);
+  const legacy = { ...raw, meta: { is_demo: true } };
+  assert.equal(parseGraph(legacy).meta.resilience, undefined);
+  assert.throws(() => parseGraph({ ...raw, meta: { ...raw.meta, resilience: null } }), /Устойчивость наблюдаемой сети/);
 });

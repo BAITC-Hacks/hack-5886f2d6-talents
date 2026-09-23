@@ -80,6 +80,9 @@ export default function App() {
   function selectClient(gid: string) {
     setSelectedTransfer(null); setSelected(gid); setScope('neighbors'); setHops(1); setRole('all'); setCluster('all'); setSearchMessage('');
   }
+  function revealPanel(selector: string) {
+    requestAnimationFrame(() => document.querySelector<HTMLElement>(selector)?.scrollIntoView({ block: 'start' }));
+  }
   function search(event: FormEvent) {
     event.preventDefault();
     const gid = query.trim();
@@ -109,7 +112,7 @@ export default function App() {
         <label><span className="sr-only">Фильтр по кластеру</span><select aria-label="Фильтр по кластеру" value={cluster} onChange={e => { setSelectedTransfer(null); setCluster(e.target.value); setScope(e.target.value === 'all' ? 'all' : 'cluster'); setLimit(50); }}><option value="all">Все кластеры</option>{data.clusters.map(c => <option key={c.id} value={c.id}>Кластер {c.id} · {c.count}</option>)}</select></label><button className="icon-button" aria-label="Сбросить фильтры" onClick={reset}><RefreshCw size={16}/></button></div>
       </section>
       {searchMessage && <p className="search-message" role="status">{searchMessage}</p>}
-      {data.meta.resilience && <ResiliencePanel resilience={data.meta.resilience} onSelectClient={selectClient} onShowOriginal={() => { reset(); setScope('all'); }}/>}
+      {data.meta.resilience && <ResiliencePanel resilience={data.meta.resilience} onSelectClient={gid => { selectClient(gid); revealPanel('.details-panel'); }} onShowOriginal={() => { reset(); setScope('all'); revealPanel('.graph-panel'); }}/>}
       <div className="workspace">
         <aside className="priority-panel" aria-label="Список клиентов">
           <div className="panel-heading"><h2>Приоритеты</h2><span className="count">{data.top.length}</span></div>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { counted } from './explanations';
 import { resilienceCounts, resilienceScenario, type Resilience, type ResilienceK, type ResilienceStrategy, type Scenario } from './resilience';
 
 const count = new Intl.NumberFormat('ru-RU');
@@ -12,7 +13,7 @@ export function ResilienceComparison({ baseline, scenario }: { baseline: Scenari
     <caption>Исходная сеть и модель после исключения выбранных клиентов</caption>
     <thead><tr><th scope="col">Показатель</th><th scope="col">До</th><th scope="col">После</th></tr></thead>
     <tbody>
-      <tr><th scope="row">Крупнейшая связанная группа</th>{[baseline, scenario].map((item, index) => <td key={index}><strong>{count.format(item.largest_component_nodes)} клиентов</strong><small>{share.format(item.largest_component_share_remaining)} среди оставшихся клиентов</small></td>)}</tr>
+      <tr><th scope="row">Крупнейшая связанная группа</th>{[baseline, scenario].map((item, index) => <td key={index}><strong>{counted(item.largest_component_nodes, 'клиент', 'клиента', 'клиентов')}</strong><small>{share.format(item.largest_component_share_remaining)} среди оставшихся клиентов</small></td>)}</tr>
       <tr><th scope="row">Связанные группы <small>(слабые компоненты)</small></th><td>{count.format(baseline.weak_components)}</td><td>{count.format(scenario.weak_components)}</td></tr>
       <tr><th scope="row">Клиенты без внешних связей</th><td>{count.format(baseline.isolated_nodes)}</td><td>{count.format(scenario.isolated_nodes)}</td></tr>
       <tr><th scope="row">Оставшиеся клиенты</th><td>{count.format(baseline.remaining_nodes)}</td><td>{count.format(scenario.remaining_nodes)}</td></tr>
@@ -33,7 +34,7 @@ export default function ResiliencePanel({ resilience, onSelectClient, onShowOrig
   return <details className="resilience-panel">
     <summary className="resilience-heading"><span>Устойчивость наблюдаемой сети</span><small>Что меняется при исключении клиентов — 8 готовых сценариев</small></summary>
     <div className="resilience-body">
-      <p className="resilience-note">Сравните два способа отбора. Исключение действует только в модели: исходный граф, карточки клиентов и файлы сохранены. Связанные группы считаются без учёта направления переводов.</p>
+      <p className="resilience-note">Сравните два способа отбора. Исключение действует только в модели: исходный граф, карточки клиентов и файлы сохранены. Связанные группы считаются без учёта направления переводов. Это компоненты связности; кластеры раскраски не пересчитываются.</p>
       <div className="resilience-controls">
         <label>Способ отбора<select aria-label="Способ отбора в структурном эксперименте" value={strategy} onChange={event => setStrategy(event.target.value as ResilienceStrategy)}>
           <option value="priority">По приоритету</option><option value="volume">По объёму переводов</option>
