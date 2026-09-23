@@ -9,6 +9,7 @@ export function RoleLabel({ client }: { client: Client }) {
 }
 export default function ClientDetails({ client }: { client: Client }) {
   const warnings = clientLimitations(client);
+  const alternatives = client.candidates.filter(candidate => candidate.role !== client.role);
   return <aside className="details-panel" aria-label="Карточка клиента">
     <div className="panel-heading"><span className="eyebrow">КАРТОЧКА КЛИЕНТА</span><span className="cluster-tag">Кластер {client.cluster}</span></div>
     <h2 className="client-gid">{client.gid}</h2>
@@ -38,7 +39,7 @@ export default function ClientDetails({ client }: { client: Client }) {
       </dl>
       <details><summary>Суммы без переводов себе</summary><dl className="facts"><div><dt>Наблюдаемые входящие</dt><dd>{value(client.observed_in, ' ₸')}</dd></div><div><dt>Наблюдаемые исходящие</dt><dd>{value(client.observed_out, ' ₸')}</dd></div></dl></details>
     </section>
-    {client.candidates.length > 1 && <details className="alternative"><summary>Другие подходящие роли</summary>{client.candidates.map((c, i) => <p key={c.role + i}>{roleNames[c.role]} · {score(c.score)}</p>)}</details>}
+    {alternatives.length > 0 && <details className="alternative"><summary>Другие подходящие роли</summary>{alternatives.map((c, i) => <p key={c.role + i}>{roleNames[c.role]} · {score(c.score)}</p>)}</details>}
     <section className="limitations"><h3><Info size={16}/> Ограничения данных</h3>
       {warnings.length ? <ul>{warnings.map(w => <li key={w}>{w}</li>)}</ul> : <p>Дополнительных ограничений для клиента не передано. Общие ограничения выборки сохраняются.</p>}
     </section>

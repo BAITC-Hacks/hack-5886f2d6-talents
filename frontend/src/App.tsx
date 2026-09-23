@@ -2,16 +2,11 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Download, Filter, Info, Network, RefreshCw, Search, ShieldCheck, SlidersHorizontal, Users } from 'lucide-react';
 import GraphView from './GraphView';
 import ClientDetails, { RoleLabel } from './ClientDetails';
-import { buildNeighbors, clusterColor, neighborhood, parseGraph, roleColors, roleNames, roles, type GraphData, type Role } from './data';
+import { buildNeighbors, clusterColor, neighborhood, roleColors, roleNames, roles, type GraphData, type Role } from './data';
+import { csvFiles, loadGraphBundle } from './bundle';
 
 const dataRoot = import.meta.env.BASE_URL + 'data/';
-const csvFiles = ['nodes_roles.csv', 'clusters.csv', 'top_nodes.csv'] as const;
-const csvHeaders: Record<string, string> = {
-  'nodes_roles.csv': 'gid,role,role_score,cluster_id,priority_score,evidence',
-  'clusters.csv': 'cluster_id,n_nodes,n_seed,sum_kzt_internal,top_gids,hypothesis',
-  'top_nodes.csv': 'rank,gid,role,priority_score,why',
-};
-type ExportFile = { name: string; content: string | null };
+type ExportFile = { name: string; url: string };
 const number = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 });
 const score = (n: number) => n.toFixed(3);
 export default function App() {
@@ -31,30 +26,27 @@ export default function App() {
   const [limit, setLimit] = useState(50);
   useEffect(() => {
     const controller = new AbortController();
+    const objectUrls: string[] = [];
     setError(''); setData(null); setExports([]);
     async function load() {
       try {
-        const response = await fetch(dataRoot + 'graph.json', { signal: controller.signal, cache: 'no-store' });
-        if (!response.ok) throw new Error('graph.json недоступен: HTTP ' + response.status);
-        const graph = parseGraph(await response.json());
+        const bundle = await loadGraphBundle(dataRoot, controller.signal);
         if (controller.signal.aborted) return;
+        const graph = bundle.graph;
+        const files = bundle.exports.map(file => {
+          const url = URL.createObjectURL(new Blob([file.bytes], { type: 'text/csv;charset=utf-8' }));
+          objectUrls.push(url);
+          return { name: file.name, url };
+        });
+        setExports(files);
         setData(graph); setSelected(graph.top[0]?.gid ?? graph.nodes[0]?.gid ?? null);
         setRole('all'); setCluster('all'); setScope('cluster'); setSearchMessage('');
       } catch (e) {
-        if (!controller.signal.aborted) setError(e instanceof Error ? e.message : 'Не удалось прочитать graph.json');
+        if (!controller.signal.aborted) setError(e instanceof Error ? e.message : 'Не удалось прочитать комплект расчёта');
       }
     }
     void load();
-    void Promise.all(csvFiles.map(async name => {
-      try {
-        const response = await fetch(dataRoot + name, { signal: controller.signal, cache: 'no-store' });
-        if (!response.ok) return { name, content: null };
-        const content = await response.text();
-        const header = content.replace(/^\uFEFF/, '').split(/\r?\n/)[0].split(',').map(v => v.replace(/^"|"$/g, '')).join(',');
-        return { name, content: header === csvHeaders[name] ? content : null };
-      } catch { return { name, content: null }; }
-    })).then(files => { if (!controller.signal.aborted) setExports(files); });
-    return () => controller.abort();
+    return () => { controller.abort(); objectUrls.forEach(url => URL.revokeObjectURL(url)); };
   }, [reload]);
   const byId = useMemo(() => new Map(data?.nodes.map(n => [n.gid, n])), [data]);
   const neighbors = useMemo(() => buildNeighbors(data?.edges ?? []), [data]);
@@ -88,7 +80,7 @@ export default function App() {
     selectClient(gid); setSearchMessage('Клиент найден. Фильтры сброшены, показаны все связи первого шага.');
   }
   function reset() { setRole('all'); setCluster('all'); setLimit(50); setSearchMessage(''); }
-  if (!data) return <main className="loading-screen"><Network size={40}/><h1>Поток</h1>{error ? <><h2>Не удалось загрузить данные</h2><p role="alert">{error}</p><p>Проверьте файл frontend/public/data/graph.json.</p><button onClick={() => setReload(n => n + 1)}>Повторить загрузку</button></> : <p role="status">Загружаем граф переводов…</p>}</main>;
+  if (!data) return <main className="loading-screen"><Network size={40}/><h1>Поток</h1>{error ? <><h2>Не удалось загрузить данные</h2><p role="alert">{error}</p><p>Завершите пересчёт файлов и повторите загрузку.</p><button onClick={() => setReload(n => n + 1)}>Повторить загрузку</button></> : <p role="status">Загружаем и проверяем граф переводов…</p>}</main>;
   return <div className="app">
     <header className="app-header">
       <div className="brand"><span className="brand-mark"><Network size={23}/></span><span>поток<small>АНАЛИЗ ПЕРЕВОДОВ</small></span></div>
@@ -96,7 +88,7 @@ export default function App() {
       <div className="header-actions"><span className={'dataset-badge ' + (data.meta.is_demo ? 'demo' : '')}>{data.meta.is_demo ? 'Учебный пример' : 'Данные пайплайна'}</span>
         <details className="exports"><summary><Download size={16}/> Экспорт CSV</summary><div className="export-menu"><strong>Выгрузки пайплайна</strong>{csvFiles.map(name => {
           const file = exports.find(f => f.name === name);
-          return file?.content ? <a key={name} href={dataRoot + name} download={name}><Download size={15}/><span>{name}<small>Скачать исходный файл</small></span></a> : <button key={name} disabled><Download size={15}/><span>{name}<small>Файл пока не передан</small></span></button>;
+          return file ? <a key={name} href={file.url} download={name}><Download size={15}/><span>{name}<small>Скачать файл открытого расчёта</small></span></a> : <button key={name} disabled><Download size={15}/><span>{name}<small>Файл пока не передан</small></span></button>;
         })}<p>Экспортируется полная выгрузка, независимо от фильтров.</p></div></details>
       </div>
     </header>

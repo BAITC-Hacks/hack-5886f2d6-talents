@@ -1,5 +1,9 @@
 # Савелий — интерфейс аналитика
 
+Следующий шаг: карточка выбранной связи с src→dst, суммой и количеством переводов;
+блок «Что проверить дальше» по данным Артура; ручная проверка трёх скачиваний
+на демонстрационном ноутбуке. [FINISH_PLAN.md](../FINISH_PLAN.md), пункты 1–3.
+
 Готовая передача от Армана: реальные файлы уже находятся в `frontend/public/data/`, C++ 1.1.0, `meta.is_demo=false`. Используй `/data/graph.json` и соседние `/data/nodes_roles.csv`, `/data/clusters.csv`, `/data/top_nodes.csv`. Подробности и проверка без UI: [frontend/README.md](../../frontend/README.md). Если разместишь проект в другой папке, сообщи путь: достаточно изменить `--out` у prepare_ui_data.py. Интерфейс готов: cd frontend, npm ci, npm run dev. Проверка: npm test и npm run build. Браузерные сценарии и сверка поставки описаны в frontend/VERIFICATION.md.
 
 Ты отвечаешь за экран просмотра графа денежных переводов на HackAlem AI.
