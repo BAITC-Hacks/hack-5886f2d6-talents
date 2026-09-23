@@ -20,6 +20,9 @@ export default function ClientDetails({ client }: { client: Client }) {
     </div>
     <section className="explanation"><h3>Почему эта роль</h3><p>{client.evidence}</p></section>
     <section className="priority-explanation"><h3>Почему проверять</h3><p>{client.why}</p></section>
+    {!!client.next_actions?.length && <section className="next-actions"><h3>Что проверить дальше</h3>
+      <ol>{client.next_actions.map((action, index) => <li key={index}>{action}</li>)}</ol>
+    </section>}
     <details className="breakdown"><summary>Из чего состоит приоритет</summary>
       {Object.keys(client.breakdown).length ? <><p className="muted">Вклады из аналитического ядра, без пересчёта.</p>
         {Object.entries(client.breakdown).map(([key, part]) => <div className="contribution" key={key}><span>{breakdownNames[key] ?? key}<small>Сигнал {score(part.signal)} × вес {score(part.weight)}</small></span><strong>{score(part.contribution)}</strong></div>)}</> : <p>Пайплайн не передал детализацию приоритета.</p>}

@@ -1,3 +1,4 @@
 # Keep the verified dataset bundle byte-identical across Windows/Linux checkouts.
 # Large generated snapshots are checked with verify_outputs.py instead of line diffs.
-/frontend/public/data/* -text -diff
+# Treat snapshots as complete files during merges: a text merge can duplicate JSON keys.
+/frontend/public/data/* -text -diff -merge

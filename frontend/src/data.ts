@@ -11,7 +11,7 @@ export const roleColors: Record<Role, string> = {
 export interface Contribution { signal: number; weight: number; contribution: number }
 export interface Client {
   gid: string; role: Role; cluster: string; priority_score: number; role_score: number;
-  evidence: string; why: string; warnings: string[];
+  evidence: string; why: string; warnings: string[]; next_actions?: string[];
   candidates: { role: Role; score: number }[]; breakdown: Record<string, Contribution>;
   total_in: number | null; total_out: number | null; observed_in: number | null; observed_out: number | null;
   in_count: number | null; out_count: number | null; in_tx: number | null; out_tx: number | null;
@@ -66,9 +66,14 @@ export function parseGraph(raw: unknown): GraphData {
     const candidates = n.role_candidates ?? [];
     if (!Array.isArray(candidates)) throw new Error('Некорректный role_candidates');
     const warnings = strings(n.warnings, 'warnings');
+    let nextActions: string[] | undefined;
+    if (Object.hasOwn(n, 'next_actions')) {
+      if (!Array.isArray(n.next_actions) || n.next_actions.some(action => typeof action !== 'string')) throw new Error(n.gid + '.next_actions: ожидается массив строк');
+      nextActions = n.next_actions;
+    }
     return { gid: n.gid, role: n.role as Role, cluster: String(n.cluster_id), is_seed: n.is_seed,
       priority_score: score(n.priority_score, n.gid + '.priority_score'), role_score: score(n.role_score, n.gid + '.role_score'),
-      evidence: text(n.evidence, 'evidence'), why: text(n.why, 'why'), warnings, breakdown,
+      evidence: text(n.evidence, 'evidence'), why: text(n.why, 'why'), warnings, next_actions: nextActions, breakdown,
       candidates: candidates.map(c => {
         if (!object(c) || !roles.includes(c.role as Role)) throw new Error('Некорректная альтернативная роль');
         return { role: c.role as Role, score: score(c.score, 'role_candidates.score') };
@@ -81,8 +86,12 @@ export function parseGraph(raw: unknown): GraphData {
       seed_reach: amount(f.seed_reach_count, 'seed_reach_count', true), min_seed_hops: amount(f.min_seed_hops, 'min_seed_hops', true),
       depth: amount(n.depth, 'depth', true) };
   });
+  const transferPairs = new Set<string>();
   const edges = raw.edges.map((value, i): Transfer => {
     if (!object(value) || typeof value.src !== 'string' || typeof value.dst !== 'string' || !ids.has(value.src) || !ids.has(value.dst)) throw new Error('Связь ' + i + ': src/dst должны ссылаться на существующие строковые gid');
+    const pair = JSON.stringify([value.src, value.dst]);
+    if (transferPairs.has(pair)) throw new Error('Связь ' + i + ': повторная направленная пара src/dst');
+    transferPairs.add(pair);
     return { source: value.src, target: value.dst, amount: amount(value.sum_kzt, 'sum_kzt'), transactions: amount(value.n_tx, 'n_tx', true) };
   });
   const indexed = new Map(nodes.map(n => [n.gid, n]));

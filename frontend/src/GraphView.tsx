@@ -1,17 +1,21 @@
 import { useEffect, useRef } from 'react';
 import cytoscape, { type Core } from 'cytoscape';
 import { Maximize, Minus, Plus } from 'lucide-react';
+import { transferKey } from './transfers';
 import { clusterColor, roleColors, type Client, type Transfer } from './data';
 
 interface Props {
   nodes: Client[]; edges: Transfer[]; selected: string | null; colorBy: 'role' | 'cluster';
   onSelect: (gid: string) => void; overview: boolean;
+  selectedTransfer: string | null; onSelectTransfer: (key: string) => void;
 }
-export default function GraphView({ nodes, edges, selected, colorBy, onSelect, overview }: Props) {
+export default function GraphView({ nodes, edges, selected, colorBy, onSelect, overview, selectedTransfer, onSelectTransfer }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const graph = useRef<Core | null>(null);
   const selectRef = useRef(onSelect);
   selectRef.current = onSelect;
+  const transferRef = useRef(onSelectTransfer);
+  transferRef.current = onSelectTransfer;
   useEffect(() => {
     if (!container.current) return;
     const cy = cytoscape({
@@ -28,15 +32,17 @@ export default function GraphView({ nodes, edges, selected, colorBy, onSelect, o
         { selector: 'edge', style: {
           width: 1.6, 'line-color': '#bac7d5', 'target-arrow-color': '#8a9aac',
           'target-arrow-shape': 'triangle', 'curve-style': 'bezier', 'arrow-scale': 1.15,
-          opacity: 0.8,
+          opacity: 0.8, 'overlay-padding': 7, 'overlay-opacity': 0,
         } },
         { selector: 'node[seed = 1]', style: { shape: 'diamond', width: 40, height: 40 } },
         { selector: 'node.active', style: { 'border-width': 5, 'border-color': '#182b45', width: 43, height: 43, 'font-weight': 'bold', 'z-index': 10 } },
         { selector: 'edge.connected', style: { 'line-color': '#6b839f', 'target-arrow-color': '#405c7d', width: 2.5, opacity: 1 } },
+        { selector: 'edge.chosen', style: { 'line-color': '#146c5a', 'target-arrow-color': '#146c5a', width: 4.5, opacity: 1, 'z-index': 20 } },
       ],
     });
     graph.current = cy;
     cy.on('tap', 'node', event => selectRef.current(event.target.data('gid')));
+    cy.on('tap', 'edge', event => transferRef.current(event.target.data('transferKey')));
     const resize = new ResizeObserver(() => { cy.resize(); cy.fit(undefined, 48); });
     resize.observe(container.current);
     return () => { resize.disconnect(); cy.destroy(); graph.current = null; };
@@ -60,12 +66,12 @@ export default function GraphView({ nodes, edges, selected, colorBy, onSelect, o
         return { data: { id: nodeKeys.get(node.gid)!, gid: node.gid, label: overview && nodes.length > 100 ? '' : node.gid.length > 12 ? '…' + node.gid.slice(-8) : node.gid, seed: node.is_seed ? 1 : 0, color: roleColors[node.role] },
           position: { x: (g % columns) * spacing + Math.cos(angle) * radius, y: Math.floor(g / columns) * spacing + Math.sin(angle) * radius } };
       }));
-      cy.add(edges.map((edge, i) => ({ data: { id: 'e' + i, source: nodeKeys.get(edge.source)!, target: nodeKeys.get(edge.target)! } })));
+      cy.add(edges.map((edge, i) => ({ data: { id: 'e' + i, transferKey: transferKey(edge), source: nodeKeys.get(edge.source)!, target: nodeKeys.get(edge.target)! } })));
     });
     cy.layout(overview || nodes.length > 150
       ? { name: 'preset', fit: true, padding: 55 }
       : nodes.length <= 20 ? { name: 'concentric', fit: true, padding: 55, minNodeSpacing: 65, concentric: node => node.data('gid') === selected ? 2 : 1, levelWidth: () => 1, nodeDimensionsIncludeLabels: true } : { name: 'cose', animate: false, fit: true, padding: 55, nodeRepulsion: () => 16000, idealEdgeLength: () => 155, componentSpacing: 95, numIter: 400, randomize: false }).run();
-  }, [nodes, edges, overview]);
+  }, [nodes, edges, overview, selected]);
   useEffect(() => {
     const cy = graph.current;
     if (!cy) return;
@@ -78,16 +84,17 @@ export default function GraphView({ nodes, edges, selected, colorBy, onSelect, o
       });
       cy.edges().removeClass('connected');
       cy.nodes('.active').connectedEdges().addClass('connected');
+      cy.edges().forEach(element => { element.toggleClass('chosen', element.data('transferKey') === selectedTransfer); });
     });
-  }, [nodes, edges, colorBy, selected, overview]);
+  }, [nodes, edges, colorBy, selected, overview, selectedTransfer]);
   return <div className="graph-surface">
-    <div ref={container} className="cytoscape" role="img" aria-label={'Направленный граф: ' + nodes.length + ' клиентов, ' + edges.length + ' связей. Выберите клиента в доступном с клавиатуры списке слева.'} />
+    <div ref={container} className="cytoscape" role="img" aria-label={'Направленный граф: ' + nodes.length + ' клиентов, ' + edges.length + ' связей. Выберите клиента в списке или перевод в списке связей над графом.'} />
     {nodes.length === 0 && <div className="graph-empty">Нет клиентов для выбранных фильтров</div>}
     <div className="graph-controls">
       <button aria-label="Увеличить граф" onClick={() => graph.current?.zoom({ level: graph.current.zoom() * 1.25, renderedPosition: { x: (container.current?.clientWidth ?? 0) / 2, y: (container.current?.clientHeight ?? 0) / 2 } })}><Plus size={17} /></button>
       <button aria-label="Уменьшить граф" onClick={() => graph.current?.zoom(graph.current.zoom() / 1.25)}><Minus size={17} /></button>
       <button aria-label="Показать граф целиком" onClick={() => graph.current?.fit(undefined, 48)}><Maximize size={16} /></button>
     </div>
-    <div className="graph-hint">Стрелка → перевод · ромб — seed · в подписях последние 8 цифр gid</div>
+    <div className="graph-hint">Нажмите на связь: сумма и операции · ромб — seed · подписи: последние 8 цифр gid</div>
   </div>;
 }
