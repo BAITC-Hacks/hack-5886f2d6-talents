@@ -79,6 +79,12 @@ def validate_result(result, payload, *, demo=False):
             raise ValueError('result.engine_version must be nonempty')
     if not isinstance(result.get('nodes'), list):
         raise ValueError('result.nodes must be an array')
+    meta = result.get('meta', {})
+    if not isinstance(meta, dict):
+        raise ValueError('result.meta must be an object')
+    if 'resilience' in meta:
+        from .resilience import validate_resilience
+        validate_resilience(meta['resilience'], payload)
     expected = {n['gid']: n for n in payload['nodes']}
     found = {}
     for n in result['nodes']:

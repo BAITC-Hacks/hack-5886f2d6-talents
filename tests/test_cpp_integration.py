@@ -54,6 +54,8 @@ def test_real_pipeline_with_config_and_unicode(engine, tmp_path):
     assert by_gid['10']['role'] not in ['terminal', 'transit']
     assert 'in_deg' in by_gid['2']
     assert strict_json(out/'run_manifest.json')['engine_config']['priority_seed_saturation'] == 7
+    from verify_outputs import verify_bundle
+    verify_bundle(out, data=raw, core=engine)
 
 
 def test_real_engine_numeric_tie_order(engine, tmp_path):
@@ -66,3 +68,49 @@ def test_real_engine_numeric_tie_order(engine, tmp_path):
     source.write_text(json.dumps({'schema_version': '1.0', 'nodes': nodes, 'edges': []}), encoding='utf-8')
     subprocess.run([str(engine), str(source), str(target)], check=True, capture_output=True, timeout=10)
     assert [n['gid'] for n in strict_json(target)['top_nodes']] == ['-1', '2', '10']
+
+
+@pytest.mark.parametrize('gids,edges', [
+    ([], []),
+    (['-1'], []),
+    (['10', '2', '-1'], []),
+    (['1'], [('1', '1', 999999)]),
+    (['1', '2', '3'], [('1', '2', 10), ('2', '3', 10)]),
+    (['1', '2', '3', '4'], [('1', '2', 10), ('1', '3', 20), ('1', '4', 30)]),
+    (['1', '2', '3'], [('1', '2', 10), ('2', '3', 10), ('3', '1', 10)]),
+    (['1', '2', '3', '4', '5'], [('1', '2', 10), ('3', '4', 20)]),
+    (['1', '2', '3'], [('1', '2', 5), ('2', '1', 7), ('1', '1', 1000), ('2', '3', 11)]),
+], ids=['empty', 'isolated_seed', 'numeric_ties', 'self_loop', 'chain', 'star',
+        'cycle', 'disconnected', 'reciprocal_and_loop'])
+def test_cpp_resilience_against_networkx_on_edge_cases(engine, tmp_path, gids, edges):
+    from hackalem.resilience import validate_resilience
+    from hackalem.resilience_reference import verify_resilience
+    nodes = {gid: dict(gid=gid, depth=0 if i == 0 else 1, is_seed=i == 0, cluster_id=0,
+                       in_deg=0, out_deg=0, in_tx=0, out_tx=0, in_kzt=0.0,
+                       out_kzt=0.0, pagerank=0.0) for i, gid in enumerate(gids)}
+    for src, dst, amount in edges:
+        nodes[src]['out_deg'] += 1
+        nodes[src]['out_tx'] += 1
+        nodes[src]['out_kzt'] += amount
+        nodes[dst]['in_deg'] += 1
+        nodes[dst]['in_tx'] += 1
+        nodes[dst]['in_kzt'] += amount
+    payload = {'schema_version': '1.0', 'nodes': list(nodes.values()),
+               'edges': [dict(src=s, dst=d, sum_kzt=a, n_tx=1) for s, d, a in edges]}
+    source, target = tmp_path/'input.json', tmp_path/'result.json'
+
+    def invoke():
+        source.write_text(json.dumps(payload), encoding='utf-8')
+        subprocess.run([str(engine), str(source), str(target)], check=True, capture_output=True, timeout=10)
+        return strict_json(target)
+
+    result = invoke()
+    if result['engine_version'] in ('1.0.0', '1.1.0', '1.2.0'):
+        pytest.skip('C++ 1.3.0 is required for the optional resilience experiment')
+    experiment = result['meta']['resilience']
+    validate_resilience(experiment, payload)
+    verify_resilience(experiment, payload, {n['gid']: n for n in result['nodes']})
+    payload['nodes'].reverse()
+    payload['edges'].reverse()
+    shuffled = invoke()
+    assert shuffled['meta']['resilience'] == experiment

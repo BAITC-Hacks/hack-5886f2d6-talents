@@ -337,3 +337,58 @@ def test_numeric_ties_and_ui_fields(tmp_path):
     assert graph['meta']['is_demo'] is False
     assert graph['meta']['config']['max_depth'] == 4
     assert graph['nodes'][0]['features']['seed_reach_count'] == 0
+
+
+@pytest.mark.parametrize('demo', [False, True])
+def test_optional_resilience_preserved_without_changing_csv(data, tmp_path, demo):
+    from hackalem.resilience_reference import calculate_resilience
+    payload = payload_for(data)
+    result = score(payload) if demo else cpp_result(payload)
+    legacy = export_outputs(payload, validate_result(result, payload, demo=demo), tmp_path,
+                            'fixture', demo, engine_result=result)
+    assert 'resilience' not in legacy['meta']
+    original_csv = {name: (tmp_path/name).read_bytes() for name in CSV_COLUMNS}
+    experiment = calculate_resilience(payload, {n['gid']: n for n in result['nodes']})
+    result.setdefault('meta', {})['resilience'] = experiment
+    graph = export_outputs(payload, validate_result(result, payload, demo=demo), tmp_path,
+                           'fixture', demo, engine_result=result)
+    assert graph['meta']['resilience'] == graph['meta']['engine_meta']['resilience'] == experiment
+    assert strict_json(tmp_path/'graph.json')['meta']['resilience'] == experiment
+    assert graph['nodes'] == legacy['nodes']
+    assert graph['top_nodes'] == legacy['top_nodes']
+    assert {name: (tmp_path/name).read_bytes() for name in CSV_COLUMNS} == original_csv
+
+
+@pytest.mark.parametrize('demo', [False, True])
+@pytest.mark.parametrize('mutation', ['null', 'missing_field', 'scenario_order', 'missing_scenario',
+    'bool_count', 'float_count', 'bool_amount', 'nan_share', 'infinite_amount', 'negative_amount',
+    'high_share', 'integer_gid', 'unknown_gid', 'duplicate_gid', 'wrong_k', 'bool_k',
+    'wrong_connectivity', 'too_many_components', 'baseline_turnover'])
+def test_invalid_resilience_rejected_before_export(data, demo, mutation):
+    from hackalem.resilience_reference import calculate_resilience
+    payload = payload_for(data)
+    result = score(payload) if demo else cpp_result(payload)
+    experiment = calculate_resilience(payload, {n['gid']: n for n in result['nodes']})
+    scenario = experiment['scenarios'][0]
+    if mutation == 'null': experiment = None
+    elif mutation == 'missing_field': scenario.pop('remaining_edges')
+    elif mutation == 'scenario_order': experiment['scenarios'].reverse()
+    elif mutation == 'missing_scenario': experiment['scenarios'].pop()
+    elif mutation == 'bool_count': scenario['isolated_nodes'] = True
+    elif mutation == 'float_count': scenario['remaining_edges'] = float(scenario['remaining_edges'])
+    elif mutation == 'bool_amount': scenario['removed_edge_sum_kzt'] = True
+    elif mutation == 'nan_share': scenario['removed_edge_sum_share'] = float('nan')
+    elif mutation == 'infinite_amount': scenario['removed_edge_sum_kzt'] = float('inf')
+    elif mutation == 'negative_amount': scenario['removed_edge_sum_kzt'] = -1
+    elif mutation == 'high_share': scenario['largest_component_share_remaining'] = 1.01
+    elif mutation == 'integer_gid': scenario['removed_gids'][0] = int(scenario['removed_gids'][0])
+    elif mutation == 'unknown_gid': scenario['removed_gids'][0] = '9223372036854775807'
+    elif mutation == 'duplicate_gid': experiment['scenarios'][1]['removed_gids'] = [scenario['removed_gids'][0]] * 3
+    elif mutation == 'wrong_k': scenario['requested_k'] = 2
+    elif mutation == 'bool_k': scenario['requested_k'] = True
+    elif mutation == 'wrong_connectivity': experiment['connectivity'] = 'strong'
+    elif mutation == 'too_many_components': scenario['weak_components'] = len(payload['nodes']) + 1
+    elif mutation == 'baseline_turnover': experiment['baseline']['removed_edge_sum_kzt'] = 1
+    result.setdefault('meta', {})['resilience'] = experiment
+    with pytest.raises(ValueError):
+        validate_result(result, payload, demo=demo)
