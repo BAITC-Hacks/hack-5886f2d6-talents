@@ -1,0 +1,160 @@
+{
+  "schema_version": "1.0",
+  "meta": {
+    "limitations": [
+      "Роли и кластеры — гипотезы для проверки, не выводы о виновности.",
+      "Depth=4 — граница наблюдений; отсутствие исходящих не доказывает конечное получение.",
+      "Входящие seed неполны; отношения сумм не отражают полный баланс.",
+      "Видны только внутрибанковские переводы за июль 2026 от 5000 KZT.",
+      "Связь с seed и членство в сообществе сами по себе не доказывают причастность."
+    ],
+    "clustering": {
+      "algorithm": "louvain",
+      "seed": 42,
+      "resolution": 1.0,
+      "projection": "sum_kzt(u,v)+sum_kzt(v,u); self-loops excluded; isolates singleton",
+      "n_clusters": 2,
+      "modularity": 0.0,
+      "networkx_version": "3.7"
+    },
+    "validation": {
+      "ok": true,
+      "n_nodes": 4,
+      "n_edges": 2,
+      "n_transactions": 3,
+      "n_seed": 2,
+      "n_isolated": 1,
+      "n_isolated_seed": 1,
+      "sum_kzt": 19000.0,
+      "max_pair_amount_error_kzt": 0.0,
+      "period_start": "2026-07-01T00:00:00",
+      "period_end": "2026-07-03T00:00:00",
+      "identical_transaction_rows": 0,
+      "warnings": []
+    },
+    "synthetic_example": true,
+    "note": "Tiny protocol example, not a complete BFS extract or submission dataset."
+  },
+  "nodes": [
+    {
+      "gid": "100000000000000001",
+      "depth": 0,
+      "is_seed": true,
+      "cluster_id": 0,
+      "metrics": {
+        "in_deg": 0,
+        "out_deg": 1,
+        "in_kzt": 0.0,
+        "out_kzt": 10000.0,
+        "in_tx": 0,
+        "out_tx": 2,
+        "pagerank": 0.1557026080042699,
+        "pass_through": null,
+        "seed_in_neighbors": 0,
+        "neighbor_clusters": 1,
+        "turnover_kzt": 10000.0
+      },
+      "flags": {
+        "isolated": false,
+        "boundary_depth": false,
+        "truncated_by_depth": false,
+        "seed_inflow_incomplete": true,
+        "pass_through_reliable": false
+      }
+    },
+    {
+      "gid": "100000000000000002",
+      "depth": 1,
+      "is_seed": false,
+      "cluster_id": 0,
+      "metrics": {
+        "in_deg": 1,
+        "out_deg": 1,
+        "in_kzt": 10000.0,
+        "out_kzt": 9000.0,
+        "in_tx": 2,
+        "out_tx": 1,
+        "pagerank": 0.2880498248078993,
+        "pass_through": 0.9,
+        "seed_in_neighbors": 1,
+        "neighbor_clusters": 1,
+        "turnover_kzt": 19000.0
+      },
+      "flags": {
+        "isolated": false,
+        "boundary_depth": false,
+        "truncated_by_depth": false,
+        "seed_inflow_incomplete": false,
+        "pass_through_reliable": true
+      }
+    },
+    {
+      "gid": "100000000000000003",
+      "depth": 4,
+      "is_seed": false,
+      "cluster_id": 0,
+      "metrics": {
+        "in_deg": 1,
+        "out_deg": 0,
+        "in_kzt": 9000.0,
+        "out_kzt": 0.0,
+        "in_tx": 1,
+        "out_tx": 0,
+        "pagerank": 0.4005449591835609,
+        "pass_through": 0.0,
+        "seed_in_neighbors": 0,
+        "neighbor_clusters": 1,
+        "turnover_kzt": 9000.0
+      },
+      "flags": {
+        "isolated": false,
+        "boundary_depth": true,
+        "truncated_by_depth": true,
+        "seed_inflow_incomplete": false,
+        "pass_through_reliable": false
+      }
+    },
+    {
+      "gid": "100000000000000004",
+      "depth": 0,
+      "is_seed": true,
+      "cluster_id": 1,
+      "metrics": {
+        "in_deg": 0,
+        "out_deg": 0,
+        "in_kzt": 0.0,
+        "out_kzt": 0.0,
+        "in_tx": 0,
+        "out_tx": 0,
+        "pagerank": 0.1557026080042699,
+        "pass_through": null,
+        "seed_in_neighbors": 0,
+        "neighbor_clusters": 0,
+        "turnover_kzt": 0.0
+      },
+      "flags": {
+        "isolated": true,
+        "boundary_depth": false,
+        "truncated_by_depth": false,
+        "seed_inflow_incomplete": true,
+        "pass_through_reliable": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "src": "100000000000000001",
+      "dst": "100000000000000002",
+      "sum_kzt": 10000.0,
+      "n_tx": 2,
+      "depth": 1
+    },
+    {
+      "src": "100000000000000002",
+      "dst": "100000000000000003",
+      "sum_kzt": 9000.0,
+      "n_tx": 1,
+      "depth": 4
+    }
+  ]
+}

@@ -2,3 +2,10 @@
 /engine/.venv/
 /engine/test-output/
 __pycache__/
+
+.pytest_cache/
+.venv/
+build/
+out/
+out-demo/
+*.exe
