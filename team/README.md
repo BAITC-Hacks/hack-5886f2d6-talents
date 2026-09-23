@@ -10,6 +10,7 @@
 | Савелий | [Экран и приёмка](saveliy/LAST_80_MINUTES.md) | [Интерфейс](saveliy/README.md) |
 
 Контрольные случаи для карточек: [DEMO_CASES.md](DEMO_CASES.md).
+Приёмка пользовательского сценария: [USABILITY_CHECK.md](USABILITY_CHECK.md).
 Измеренное отличие от отбора по обороту и текст для демо: [EVIDENCE.md](../docs/EVIDENCE.md).
 Форматы: [вход/выход C++](../engine/CONTRACT.md), [данные UI](../CONTRACT.md).
 Каждый участник может передать свою папку своему GPT вместе с контрактом и ТЗ.

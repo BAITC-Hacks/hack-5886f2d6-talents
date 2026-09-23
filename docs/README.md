@@ -12,6 +12,7 @@
 | Подключить UI и выгрузки | [Общий контракт](../CONTRACT.md) |
 | Запустить интерфейс | [Frontend](../frontend/README.md) |
 | Пройти демонстрацию | [Сценарий](../frontend/DEMO.md), [контрольные случаи](../team/DEMO_CASES.md) |
+| Проверить пользовательский сценарий | [Протокол приёмки](../team/USABILITY_CHECK.md) |
 | Найти текущее задание участника | [Команда](../team/README.md), [план до дедлайна](../team/LAST_80_MINUTES.md) |
 | Реализовать структурный эксперимент | [Контракт устойчивости](../team/RESILIENCE_CONTRACT.md) |
 | Проверить пользу и сравнить с отбором по обороту | [Измерения на 2248 клиентах](EVIDENCE.md) |
@@ -32,7 +33,7 @@
   [сверка ТЗ](archive/engine/TZ_AUDIT.md),
   [проверка чистой копии](archive/engine/CLEAN_CHECK.md).
 - **Интерфейс:** [история браузерных проверок](archive/frontend/VERIFICATION.md),
-  [сверка с Word для fbec33f](archive/frontend/WORD_TZ_CHECK.md).
+  [история сверок с Word](archive/frontend/WORD_TZ_CHECK.md).
 - **Команда:** [технические критерии и проверка fbec33f](archive/team/TECHNICAL_REVIEW.md),
   [внутренняя оценка fbec33f](archive/team/CURRENT_REVIEW.md),
   [прежний план](archive/team/FINISH_PLAN.md),
@@ -42,3 +43,5 @@
 
 Отчёт воспроизводимости Армана пока остаётся в его рабочей папке:
 [FINAL_RUN.md](../team/arman/FINAL_RUN.md).
+Машинные отчёты прежних версий ядра лежат рядом с их описаниями в
+[`archive/engine/reports/`](archive/engine/reports/).
