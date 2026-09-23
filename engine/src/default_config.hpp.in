@@ -1,0 +1,2 @@
+#pragma once
+inline constexpr const char* DEFAULT_CONFIG_JSON = R"config(@DEFAULT_CONFIG_JSON@)config";

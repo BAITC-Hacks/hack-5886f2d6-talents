@@ -1,0 +1,153 @@
+# Арман — данные и интеграция
+
+Ты отвечаешь за Python-пайплайн: сырые Parquet → метрики и кластеры → C++-ядро
+Артура → три CSV и данные для интерфейса Савелия. На хакатон выделено 5 часов.
+Ядро уже реализовано; основной контракт описан в
+[engine/CONTRACT.md](../../engine/CONTRACT.md).
+
+## Что уже готово у Артура
+
+- Исполняемая программа `engine input.json result.json`.
+- Дополнительные признаки: достижимость из seed, ближайший seed по числу шагов,
+  непосредственные seed-отправители, контрагенты и связи между кластерами.
+- Шесть ролей, role_score, priority_score, evidence и why.
+- Альтернативные подходящие роли, ограничения данных и вклады в приоритет.
+- Топ-20, конфигурация правил и валидация входа.
+
+Код: [engine/src](../../engine/src). Правила и сборка:
+[engine/README.md](../../engine/README.md). Контрольный прогон всех 2248 клиентов
+прошёл; [результаты проверки](../../engine/VALIDATION.md).
+
+## Твои задачи
+
+1. Использовать `TechTask/starter(1)/starter/starter.py` как основу. Данные находятся
+   в `TechTask/data(1)/data/`.
+2. Проверить уникальность gid и пар src→dst, существование концов рёбер,
+   совпадение сумм и количества транзакций с агрегированными edges.
+3. Добавить в граф все узлы из nodes.parquet, включая 19 изолированных.
+4. Рассчитать базовые метрики стартера. Для PageRank через NetworkX нужен SciPy:
+   его нет в исходном requirements.txt организаторов, поэтому добавь зависимость.
+5. Выполнить Louvain с фиксированным seed. На неориентированной проекции суммировать
+   встречные рёбра явно: простой `to_undirected()` может потерять один из весов.
+   Назначить cluster_id каждому узлу, включая изолированные.
+6. Сформировать input.json, вызвать ядро, проверить код выхода и состав результата.
+7. Объединить результат с исходными метриками по gid, сохранить три CSV и graph.json.
+8. Обеспечить полный запуск одной командой, указать зависимости и команды в README.
+
+## Вход и выход C++
+
+На входе корневой объект `{"schema_version":"1.0","nodes":[],"edges":[]}`.
+
+Каждый узел обязательно содержит:
+
+```text
+gid: string
+depth: integer
+is_seed: boolean
+cluster_id: integer >= 0
+in_deg, out_deg, in_tx, out_tx: integer >= 0
+in_kzt, out_kzt: number >= 0
+pagerank: number от 0 до 1
+```
+
+Ребро: `src`, `dst` — строки; `sum_kzt` — положительное число;
+`n_tx` — положительное целое. Дополнительные поля разрешены.
+`pass_through` можно опустить либо передать число/null; `truncated_by_depth`
+можно опустить либо передать согласованный boolean.
+
+Все gid сохраняй строками от чтения исходного int64 до записи JSON, включая
+src и dst. Не используй промежуточное преобразование во float или pandas.iterrows()
+на смешанных числовых строках: идентификатор может потерять точность.
+
+Канонические примеры и схемы:
+
+- [input.json](../../engine/examples/input.json)
+- [result.json](../../engine/examples/result.json)
+- [input.schema.json](../../engine/schemas/input.schema.json)
+- [result.schema.json](../../engine/schemas/result.schema.json)
+
+Сборка из корня репозитория:
+
+```sh
+cmake -S engine -B engine/build -DCMAKE_BUILD_TYPE=Release
+cmake --build engine/build --config Release --parallel 2
+```
+
+На Windows можно запустить `powershell -ExecutionPolicy Bypass -File engine/build.ps1`.
+Путь программы: MinGW/Ninja — `engine/build/engine.exe`, Visual Studio —
+`engine/build/Release/engine.exe`, Linux/macOS — `engine/build/engine`.
+Библиотека JSON уже в репозитории; дополнительные C++-пакеты скачивать не нужно.
+
+```python
+import json
+import subprocess
+from pathlib import Path
+
+# engine_path, input_path, result_path — выбранные вашим пайплайном Path.
+input_path.write_text(
+    json.dumps(payload, ensure_ascii=False, allow_nan=False), encoding="utf-8"
+)
+subprocess.run(
+    [str(engine_path.resolve()), str(input_path.resolve()), str(result_path.resolve())],
+    check=True,
+)
+result = json.loads(result_path.read_text(encoding="utf-8"))
+```
+
+Перед сериализацией замени отсутствующие числовые значения pandas на None:
+NaN/Infinity не входят в JSON-контракт. После запуска объединяй таблицы по gid,
+а не по позиции строк, например через `merge(..., validate="one_to_one")`.
+Проверяй, что наборы gid совпадают и нет пропущенных ролей.
+
+## Обязательные CSV
+
+| Файл | Колонки |
+|---|---|
+| nodes_roles.csv | gid, role, role_score, cluster_id, priority_score, evidence |
+| clusters.csv | cluster_id, n_nodes, n_seed, sum_kzt_internal, top_gids, hypothesis |
+| top_nodes.csv | rank, gid, role, priority_score, why |
+
+В nodes_roles.csv должны быть все узлы; в top_nodes.csv — минимум 20 на полном
+датасете. Ядро уже возвращает `top_nodes` и все оценки. `clusters.csv` формируешь
+ты: внутренний оборот — сумма исходных направленных рёбер, у которых оба конца
+в кластере; каждое ребро учитывается один раз. Для top_gids выберите и опишите
+стабильный формат CSV-ячейки, например JSON-массив строк. Гипотезы кластеров
+формулируйте из фактических метрик, без утверждений о виновности.
+
+В CSV gid можно записать как исходный int64 через `int(gid_string)`. В JSON
+идентификаторы всегда остаются строками.
+
+## Передача данных Савелию
+
+В [папке Савелия](../saveliy/README.md) описан предлагаемый формат graph.json,
+а [graph.example.json](../saveliy/graph.example.json) позволяет ему сразу делать экран.
+Этот формат нужно подтвердить между вами; формат входа/выхода C++ уже зафиксирован.
+
+Предлагаемая сборка graph.json:
+
+- `nodes`: исходная строка узла с метриками + строка результата C++, соединённые по gid;
+- `edges`: исходные направленные рёбра с добавленным `id = src + ":" + dst`;
+- `top_nodes`: массив результата C++;
+- `clusters`: строки сводки кластеров; top_gids здесь массив строк;
+- `meta`: метаданные C++ и `is_demo=false` для настоящего датасета;
+- `schema_version`: `"1.0"`.
+
+Общие gid/cluster_id в двух источниках должны совпадать до объединения.
+В итоговом UI-узле сохраняются и исходные метрики, и `features`, `warnings`,
+`priority_breakdown`. CSV положите рядом с graph.json в согласованную статическую
+папку интерфейса; конкретный путь согласуйте с Савелием.
+
+## Что можно взять для ускорения
+
+[engine/tests/check_dataset.py](../../engine/tests/check_dataset.py) уже показывает
+загрузку стартера, проверку данных, подготовку входа и вызов ядра. Это тестовый
+адаптер, он не создаёт обязательные CSV или полноценный production-пайплайн.
+Используй его как рабочий пример и дополни своей частью.
+
+Критичные ограничения: depth=4 не доказывает terminal, входящие seed неполны,
+role_score не является вероятностью, исходные суммы не являются остатками счёта.
+Не меняй роли и приоритеты после C++ без согласованного изменения правил.
+
+Цель интеграции: примерно к середине хакатона получить полный прогон от настоящих
+Parquet до файлов, которые открывает интерфейс. Последний час оставить на
+README, чистый запуск и репетицию демонстрации.

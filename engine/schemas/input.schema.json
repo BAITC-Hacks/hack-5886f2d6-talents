@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Money graph engine input v1",
+  "type": "object",
+  "required": ["schema_version", "nodes", "edges"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "nodes": {"type": "array", "items": {"$ref": "#/$defs/node"}},
+    "edges": {"type": "array", "items": {"$ref": "#/$defs/edge"}}
+  },
+  "$defs": {
+    "gid": {"type": "string", "pattern": "^(0|[1-9][0-9]*|-[1-9][0-9]*)$", "description": "Canonical signed int64 string; range validated by engine"},
+    "count": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807},
+    "amount": {"type": "number", "minimum": 0},
+    "node": {
+      "type": "object",
+      "required": ["gid", "depth", "is_seed", "cluster_id", "in_deg", "out_deg", "in_kzt", "out_kzt", "in_tx", "out_tx", "pagerank"],
+      "properties": {
+        "gid": {"$ref": "#/$defs/gid"},
+        "depth": {"$ref": "#/$defs/count", "description": "At most configured max_depth (default 4)"},
+        "is_seed": {"type": "boolean"},
+        "cluster_id": {"$ref": "#/$defs/count"},
+        "in_deg": {"$ref": "#/$defs/count"},
+        "out_deg": {"$ref": "#/$defs/count"},
+        "in_tx": {"$ref": "#/$defs/count"},
+        "out_tx": {"$ref": "#/$defs/count"},
+        "in_kzt": {"$ref": "#/$defs/amount"},
+        "out_kzt": {"$ref": "#/$defs/amount"},
+        "pagerank": {"type": "number", "minimum": 0, "maximum": 1},
+        "pass_through": {"type": ["number", "null"], "minimum": 0},
+        "truncated_by_depth": {"type": "boolean"}
+      }
+    },
+    "edge": {
+      "type": "object",
+      "required": ["src", "dst", "sum_kzt", "n_tx"],
+      "properties": {
+        "src": {"$ref": "#/$defs/gid"},
+        "dst": {"$ref": "#/$defs/gid"},
+        "sum_kzt": {"type": "number", "exclusiveMinimum": 0},
+        "n_tx": {"type": "integer", "minimum": 1, "maximum": 9223372036854775807}
+      }
+    }
+  }
+}

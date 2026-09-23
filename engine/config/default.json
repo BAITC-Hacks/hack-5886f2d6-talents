@@ -1,0 +1,24 @@
+{
+  "max_depth": 4,
+  "consolidator_min_senders": 3,
+  "consolidator_min_in_percentile": 0.5,
+  "distributor_min_receivers": 5,
+  "distributor_min_out_percentile": 0.5,
+  "transit_ratio_min": 0.8,
+  "transit_ratio_max": 1.2,
+  "coordinator_min_seeds": 3,
+  "coordinator_min_external_clusters": 2,
+  "coordinator_min_senders": 2,
+  "coordinator_min_receivers": 2,
+  "coordinator_min_volume_percentile": 0.75,
+  "boundary_role_multiplier": 0.8,
+  "seed_role_multiplier": 0.85,
+  "priority_seed_saturation": 5,
+  "priority_cluster_saturation": 3,
+  "priority_weights": {
+    "seed_reach": 0.35,
+    "volume": 0.30,
+    "counterparties": 0.20,
+    "external_clusters": 0.15
+  }
+}
