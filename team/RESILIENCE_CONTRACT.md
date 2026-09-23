@@ -1,7 +1,9 @@
 # Контракт структурного эксперимента v1 — C++ 1.3.0
 
 **Статус: реализовано в C++ 1.3.0; полный расчёт и независимая сверка пройдены.
-Пакет frontend/public/data 1.2.0 ожидает пересчёта Арманом и подключения UI Савелием.**
+Пакет frontend/public/data пересчитан ядром 1.3.0 и проверен Арманом;
+новый экран устойчивости Савелия подключён и проверен на этом пакете.**
+Проверка поставки, SHA и время: [RESILIENCE_CHECK.md](arman/RESILIENCE_CHECK.md).
 Результаты сравнения стратегий: [EVIDENCE.md](../docs/EVIDENCE.md).
 Поле необязательно: `result.json.meta.resilience` → `graph.json.meta.resilience`.
 Python уже копирует engine meta в graph meta и в meta.engine_meta. CSV,
