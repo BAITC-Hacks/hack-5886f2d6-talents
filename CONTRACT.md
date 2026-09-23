@@ -40,4 +40,4 @@ Louvain: вес суммы двух направлений, исключение
 
 engine/examples — канонические примеры автора ядра. examples/input.json, result.json и graph.json — маленький синтетический прогон Python-интеграции; пересоздание: `python make_examples.py --core engine/build/engine.exe`. Без C++ доступен явный `--demo`.
 
-Полный прогон: `python pipeline.py --out out`. Для интерфейса можно указать `--out frontend/public/data`, если этот каталог согласован с Савелием. Подтверждение UI-пути ещё не получено. Контракт C++ принят из кода Артура, но это не означает отдельного устного подтверждения команды.
+Полный прогон: `python pipeline.py --out out`. Действующий каталог интерфейса — `frontend/public/data/`: UI читает `/data/graph.json` и скачивает три соседних CSV. Обновлять весь комплект одним запуском `python prepare_ui_data.py`, затем проверять `python verify_outputs.py`; JSON, CSV и manifest должны относиться к одному прогону. Запуск UI из корня: `cd frontend`, `npm ci`, `npm run dev`. Совместимость с изменениями `f043aa3` проверена: [отчёт](frontend/VERIFICATION.md). Командная приёмка на втором ноутбуке остаётся отдельным шагом.

@@ -45,6 +45,11 @@ def same_number(a, b):
         return False
 
 
+def same_integer(text, expected):
+    """CSV integer fields must be exact decimal integers, never float approximations."""
+    return type(expected) is int and isinstance(text, str) and text == str(expected)
+
+
 def verify_bundle(out: Path, *, data: Path | None = None, core: Path | None = None,
                   allow_demo=False, base_url=None):
     """Require all six deliverables plus input/result provenance from the same run."""
@@ -116,8 +121,10 @@ def verify_bundle(out: Path, *, data: Path | None = None, core: Path | None = No
         node = nodes[gid]
         for key in ('role', 'evidence'):
             require(row[key] == node[key], f'nodes_roles.csv {gid}: {key} differs')
-        for key in ('role_score', 'priority_score', 'cluster_id'):
+        for key in ('role_score', 'priority_score'):
             require(same_number(row[key], node[key]), f'nodes_roles.csv {gid}: {key} differs')
+        require(same_integer(row['cluster_id'], node['cluster_id']),
+                f'nodes_roles.csv {gid}: cluster_id must be the exact integer')
     ranked = sorted(nodes.values(), key=lambda n: (-n['priority_score'], int(n['gid'])))
     require(min(20, len(nodes)) <= len(graph['top_nodes']) <= len(nodes), 'top length is invalid')
     expected_top = [{'rank': i+1, **{k: n[k] for k in ('gid', 'role', 'priority_score', 'why')}}
@@ -125,13 +132,17 @@ def verify_bundle(out: Path, *, data: Path | None = None, core: Path | None = No
     require(graph['top_nodes'] == expected_top, 'graph top differs from scores/numeric gid ordering')
     require(len(rows['top_nodes.csv']) == len(expected_top), 'top CSV length differs')
     for actual, expected in zip(rows['top_nodes.csv'], expected_top):
-        require(all(same_number(actual[k], v) if k in ('rank', 'priority_score') else actual[k] == v
+        require(all(same_integer(actual[k], v) if k == 'rank' else
+                    same_number(actual[k], v) if k == 'priority_score' else actual[k] == v
                     for k, v in expected.items()), 'top CSV row differs')
     clusters = index(graph['clusters'], 'cluster_id', 'graph clusters')
     cluster_rows = index(rows['clusters.csv'], 'cluster_id', 'clusters.csv')
     require(set(clusters) == {n['cluster_id'] for n in nodes.values()} and
             set(cluster_rows) == {str(cid) for cid in clusters}, 'cluster coverage differs')
     for cid, cluster in clusters.items():
+        hypothesis = cluster.get('hypothesis')
+        require(isinstance(hypothesis, str) and bool(hypothesis.strip()),
+                f'cluster {cid}: hypothesis must be nonempty text')
         members = [n for n in ranked if n['cluster_id'] == cid]
         internal = math.fsum(e['sum_kzt'] for e in graph['edges']
                              if nodes[e['src']]['cluster_id'] == cid == nodes[e['dst']]['cluster_id'])
@@ -139,7 +150,9 @@ def verify_bundle(out: Path, *, data: Path | None = None, core: Path | None = No
                 and same_number(cluster['sum_kzt_internal'], internal)
                 and cluster['top_gids'] == [n['gid'] for n in members[:5]], f'cluster {cid}: incorrect summary')
         row = cluster_rows[str(cid)]
-        require(all(same_number(row[k], cluster[k]) for k in ('n_nodes', 'n_seed', 'sum_kzt_internal'))
+        require(same_integer(row['cluster_id'], cid)
+                and all(same_integer(row[k], cluster[k]) for k in ('n_nodes', 'n_seed'))
+                and same_number(row['sum_kzt_internal'], cluster['sum_kzt_internal'])
                 and json.loads(row['top_gids']) == cluster['top_gids'] and row['hypothesis'] == cluster['hypothesis'],
                 f'cluster {cid}: CSV differs')
     if data is not None:
