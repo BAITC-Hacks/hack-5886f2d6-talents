@@ -26,16 +26,33 @@ function serve(files: Record<string, string>, calls: string[] = []): typeof fetc
   };
 }
 
-test('retains exact verified CSV bytes even after the server changes to a new run', async () => {
+test('retains all three CSV snapshots and loads a complete newer run only on refresh', async () => {
   const files = fixture(), calls: string[] = [];
-  const expected = files['nodes_roles.csv'];
+  const expected = Object.fromEntries(csvFiles.map(name => [name, files[name]]));
   const bundle = await loadGraphBundle('/data/', new AbortController().signal, serve(files, calls));
   assert.equal(bundle.graph.nodes.length, JSON.parse(files['graph.json']).nodes.length);
-  files['nodes_roles.csv'] += 'new run\n';
-  const download = new Blob([bundle.exports.find(file => file.name === 'nodes_roles.csv')!.bytes], { type: 'text/csv' });
-  assert.equal(await download.text(), expected);
   assert.equal(calls.filter(name => name === 'run_manifest.json').length, 2);
   for (const name of ['graph.json', ...csvFiles]) assert.equal(calls.filter(called => called === name).length, 1);
+
+  // A completed new run is now available, while the analyst keeps the old page open.
+  const updated = JSON.parse(files['graph.json']);
+  updated.nodes[0].next_actions = ['Проверить даты операций.'];
+  files['graph.json'] = JSON.stringify(updated);
+  for (const name of csvFiles) files[name] += '\n';
+  const manifest = JSON.parse(files['run_manifest.json']);
+  manifest.artifact_sha256 = Object.fromEntries(['graph.json', ...csvFiles].map(name => [name, sha256(files[name])]));
+  files['run_manifest.json'] = JSON.stringify(manifest);
+  assert.equal(bundle.graph.nodes[0].next_actions, undefined);
+  for (const file of bundle.exports) {
+    assert.equal(await new Blob([file.bytes], { type: 'text/csv' }).text(), expected[file.name]);
+  }
+  const refreshed = await loadGraphBundle('/data/', new AbortController().signal, serve(files));
+  assert.deepEqual(refreshed.graph.nodes[0].next_actions, ['Проверить даты операций.']);
+  for (const file of refreshed.exports) {
+    const text = await new Blob([file.bytes], { type: 'text/csv' }).text();
+    assert.equal(text, files[file.name]);
+    assert.notEqual(text, expected[file.name]);
+  }
 });
 
 test('rejects changed CSV rows although the required header still matches', async () => {

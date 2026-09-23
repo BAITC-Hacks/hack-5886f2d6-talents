@@ -83,12 +83,12 @@ test('accepts older bundles without next actions and distinguishes an explicit e
   for (const client of oldData.nodes) {
     assert.equal(client.next_actions, undefined);
     const html = renderToStaticMarkup(createElement(ClientDetails, { client }));
-    assert.ok(html.includes('В этом расчёте следующие действия не переданы.'));
+    assert.ok(!html.includes('Что проверить дальше'));
   }
   raw.nodes[0].next_actions = [];
   const empty = parseGraph(raw).nodes[0];
   assert.deepEqual(empty.next_actions, []);
-  assert.ok(renderToStaticMarkup(createElement(ClientDetails, { client: empty })).includes('В этом расчёте дополнительные действия не указаны.'));
+  assert.ok(!renderToStaticMarkup(createElement(ClientDetails, { client: empty })).includes('Что проверить дальше'));
 });
 test('rejects malformed supplied next actions with a node-specific field error', () => {
   for (const invalid of [null, undefined, 'Проверить', {}, [1], ['Проверить', false]]) {

@@ -117,6 +117,43 @@ struct Node {
 };
 struct Edge { std::size_t src, dst; double sum; std::int64_t count; };
 
+json next_actions(const Node& n, bool boundary, const std::string& role) {
+    json actions = json::array();
+    // Put missing observations before role verification. Self-transfers are
+    // operations, but they provide no external counterparties for role rules.
+    if (n.in_deg == 0 && n.out_deg == 0)
+        actions.push_back(u8"Проверить полноту выгрузки, период и порог; запросить дополнительные операции: в выборке нет наблюдаемых связей.");
+    else if (n.peers == 0)
+        actions.push_back(u8"Проверить операции с самим собой и запросить переводы другим клиентам: внешних контрагентов в выборке нет.");
+    if (boundary)
+        actions.push_back(u8"Запросить продолжение исходящих переводов за границей обхода (depth=" +
+            std::to_string(n.depth) + u8"); видимые исходящие могут быть неполными.");
+    if (n.seed)
+        actions.push_back(u8"Запросить недостающие входящие переводы seed; до проверки полноты не использовать отношение исходящих к входящим как полный баланс.");
+
+    // One recommendation for the primary hypothesis. Alternative roles do not
+    // add competing actions. No-peer nodes already have a completeness action.
+    if (n.peers == 0) return actions;
+    if (role == "coordinator")
+        actions.push_back(u8"Проверить направленные маршруты от " + std::to_string(n.seed_reach) +
+            u8" seed и связи с " + std::to_string(n.external_clusters) +
+            u8" внешними кластерами; сопоставить даты операций.");
+    else if (role == "consolidator")
+        actions.push_back(u8"Проверить источники поступлений от " + std::to_string(n.nonself_in) +
+            u8" отправителей и основания переводов; сопоставить даты и суммы.");
+    else if (role == "distributor")
+        actions.push_back(u8"Проверить дальнейшие переводы " + std::to_string(n.nonself_out) +
+            u8" получателей и основания распределения; сопоставить даты и суммы.");
+    else if (role == "transit")
+        actions.push_back(u8"Сопоставить даты входящих и исходящих переводов; проверить порядок и интервалы, прежде чем связывать их в транзит.");
+    else if (role == "terminal")
+        actions.push_back(u8"Запросить исходящие за пределами периода, банка и порога выгрузки; проверить гипотезу конечного получателя.");
+    else
+        actions.push_back(u8"Проверить наблюдаемые переводы с " + std::to_string(n.peers) +
+            u8" контрагентами и полноту периода и порога выгрузки; отсутствие выраженной роли не исключает необходимости проверки.");
+    return actions;
+}
+
 std::vector<double> percentiles(const std::vector<double>& values) {
     std::vector<double> positive;
     for (const double v : values) if (v > 0) positive.push_back(v);
@@ -389,6 +426,7 @@ json analyze(const json& input, const json& config) {
             {"role_score", candidates.front().at("score")}, {"priority_score", bounded(priority)},
             {"evidence", short_text(evidence)}, {"why", short_text(why)}, {"role_candidates", candidates},
             {"priority_breakdown", breakdown}, {"warnings", warnings},
+            {"next_actions", next_actions(n, boundary, role)},
             {"features", {{"seed_reach_count", n.seed_reach}, {"direct_seed_senders", n.direct_seeds},
                 {"min_seed_hops", n.min_hops < 0 ? json(nullptr) : json(n.min_hops)},
                 {"external_cluster_count", n.external_clusters}, {"cross_cluster_edges", n.cross_edges},

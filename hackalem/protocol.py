@@ -106,6 +106,8 @@ def validate_result(result, payload, *, demo=False):
             if type(n['cluster_id']) is not int or n['cluster_id'] != expected[gid]['cluster_id']:
                 raise ValueError(f'{gid}: result cluster_id differs from Python input')
             fields += ['cluster_id', 'features', 'role_candidates', 'priority_breakdown', 'warnings']
+            if 'next_actions' in n:
+                fields.append('next_actions')
         found[gid] = {k: n[k] for k in fields}
     if set(found) != set(expected):
         raise ValueError(f'result missing {len(set(expected)-set(found))} nodes')

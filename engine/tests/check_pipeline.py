@@ -158,6 +158,9 @@ def verify(out, executable, executed_sha256):
         for field in REQUIRED_NODE_FIELDS:
             check(field in node and field in ui and node[field] == ui[field],
                   f"{gid}: graph must preserve required C++ {field}")
+        if "next_actions" in node:
+            check(ui.get("next_actions") == node["next_actions"],
+                  f"{gid}: graph must preserve C++ next_actions")
 
     engine_config = result.get("meta", {}).get("config")
     check(isinstance(engine_config, dict), "C++ result must expose effective configuration")

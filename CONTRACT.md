@@ -12,7 +12,9 @@ gid/src/dst — каноническая десятичная строка signe
 
 ## C++ → Python
 
-Корень: schema_version, engine_version, nodes, top_nodes, meta. Каждый узел содержит gid, cluster_id, role, role_score, priority_score, evidence, why, features, role_candidates, priority_breakdown, warnings. Полный перечень типов: [result.schema.json](engine/schemas/result.schema.json).
+Корень: schema_version, engine_version, nodes, top_nodes, meta. Каждый узел содержит gid, cluster_id, role, role_score, priority_score, evidence, why, features, role_candidates, priority_breakdown, warnings. Начиная с C++ 1.2.0 узел также содержит
+next_actions — 1–3 уникальные непустые строки до 200 Unicode-символов.
+Для старых результатов поле необязательно. Полный перечень типов: [result.schema.json](engine/schemas/result.schema.json).
 
 Python проверяет схему, полный набор уникальных gid, неизменность cluster_id и топ-20. Объединение по gid; позиции массивов значения не имеют. Роли, оценки и объяснения C++ сохраняются без пересчёта и округления. Для более длинного топа Python сортирует все результаты по priority_score убыванию и числовому gid возрастанию.
 
@@ -21,7 +23,7 @@ Python проверяет схему, полный набор уникальны
 Корень: schema_version, meta, nodes, edges, clusters, top_nodes.
 
 - nodes: плоские поля входа + проверенные поля C++ по gid, включая features, role_candidates, priority_breakdown, warnings. Дополнительные metrics/flags сохраняются для совместимости; UI использует плоские поля.
-- `nodes[].next_actions?: string[]`: UI готов показать следующие действия ядра в исходном порядке; поле необязательно, `[]` допустим. На этапе этой интеграции его ещё нет в поставке C++ 1.1.0. Неверный тип отклоняется; правила действий во фронтенде не вычисляются.
+- `nodes[].next_actions?: string[]`: Python сохраняет следующие действия C++ 1.2.0, UI показывает их в исходном порядке. Ядро выдаёт 1–3 уникальные непустые строки; старый пакет без поля допустим. UI также принимает пустой список и скрывает блок при пустом или отсутствующем поле. Неверный тип отклоняется; правила действий во фронтенде не вычисляются.
 - edges: исходные направленные рёбра + `id=src+":"+dst`. Для Cytoscape преобразовать src/dst в source/target, сохраняя строковый тип.
 - clusters: cluster_id, n_nodes, n_seed, sum_kzt_internal, top_gids (массив строк, до 5 лидеров), hypothesis.
 - top_nodes: rank, gid, role, priority_score, why. Равные приоритеты упорядочиваются по числовому gid. На полном датасете минимум 20.
@@ -41,4 +43,4 @@ Louvain: вес суммы двух направлений, исключение
 
 engine/examples — канонические примеры автора ядра. examples/input.json, result.json и graph.json — маленький синтетический прогон Python-интеграции; пересоздание: `python make_examples.py --core engine/build/engine.exe`. Без C++ доступен явный `--demo`.
 
-Полный прогон: `python pipeline.py --out out`. Действующий каталог интерфейса — `frontend/public/data/`: UI читает `/data/graph.json` и скачивает три соседних CSV. Обновлять весь комплект одним запуском `python prepare_ui_data.py`, затем проверять `python verify_outputs.py`; JSON, CSV и manifest должны относиться к одному прогону. Запуск UI из корня: `cd frontend`, `npm ci`, `npm run dev`. Совместимость с изменениями `f043aa3` проверена: [отчёт](frontend/VERIFICATION.md). Командная приёмка на втором ноутбуке остаётся отдельным шагом.
+Полный прогон: `python pipeline.py --out out`. Действующий каталог интерфейса — `frontend/public/data/`: UI читает `/data/graph.json` и скачивает три соседних CSV. Обновлять весь комплект одним запуском `python prepare_ui_data.py`, затем проверять `python verify_outputs.py`; JSON, CSV и manifest должны относиться к одному прогону. Запуск UI из корня: `cd frontend`, `npm ci`, `npm run dev`. Версии и результаты проверки совместимости: [отчёт](frontend/VERIFICATION.md). Командная приёмка на втором ноутбуке остаётся отдельным шагом.
