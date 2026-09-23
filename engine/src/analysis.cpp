@@ -1,5 +1,6 @@
 #include "analysis.hpp"
 #include "default_config.hpp"
+#include "version.hpp"
 #include <algorithm>
 #include <charconv>
 #include <cmath>
@@ -12,7 +13,9 @@
 #include <set>
 #include <sstream>
 #include <stdexcept>
+#include <tuple>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace money_graph {
@@ -49,6 +52,30 @@ std::string identifier(const json& value, const std::string& field) {
     if (parsed.ec != std::errc() || parsed.ptr != s.data() + s.size() || s != std::to_string(id))
         fail(field + " must be a canonical int64 string");
     return s;
+}
+
+json normalize_node(const json& source) {
+    if (!source.is_object()) fail("Each node must be an object");
+    json row = source;
+    // Accept Arman's original nested input without changing the flat v1 contract.
+    // Only explicitly known fields may cross this boundary: never let metrics
+    // override gid, is_seed, depth, or the Python-owned cluster_id.
+    const auto merge_field = [&](const json& group, const char* field) {
+        if (!group.contains(field)) return;
+        if (row.contains(field) && row.at(field) != group.at(field))
+            fail(std::string("Conflicting flat/nested node field: ") + field);
+        row[field] = group.at(field);
+    };
+    if (source.contains("metrics")) {
+        if (!source.at("metrics").is_object()) fail("node.metrics must be an object");
+        for (const char* field : {"in_deg", "out_deg", "in_tx", "out_tx", "in_kzt", "out_kzt", "pagerank", "pass_through"})
+            merge_field(source.at("metrics"), field);
+    }
+    if (source.contains("flags")) {
+        if (!source.at("flags").is_object()) fail("node.flags must be an object");
+        merge_field(source.at("flags"), "truncated_by_depth");
+    }
+    return row;
 }
 
 bool close(double a, double b) {
@@ -150,8 +177,9 @@ json analyze(const json& input, const json& config) {
     const auto cfg = [&](const char* key) { return config.at(key).get<double>(); };
     std::vector<Node> nodes;
     std::unordered_map<std::string, std::size_t> index;
-    std::unordered_map<std::string, const json*> source_nodes;
-    for (const auto& row : input.at("nodes")) {
+    std::unordered_set<std::string> seen_gids;
+    for (const auto& source : input.at("nodes")) {
+        const auto row = normalize_node(source);
         Node n;
         n.gid = identifier(row.at("gid"), "gid");
         n.numeric_gid = std::stoll(n.gid);
@@ -167,7 +195,7 @@ json analyze(const json& input, const json& config) {
         n.out_kzt = number(row.at("out_kzt"), n.gid + ".out_kzt");
         n.pagerank = number(row.at("pagerank"), n.gid + ".pagerank");
         if (n.pagerank > 1) fail(n.gid + ": pagerank exceeds 1");
-        if (!source_nodes.emplace(n.gid, &row).second) fail("Duplicate gid: " + n.gid);
+        if (!seen_gids.insert(n.gid).second) fail("Duplicate gid: " + n.gid);
         if (row.contains("pass_through")) {
             if (n.in_kzt == 0) {
                 if (!row.at("pass_through").is_null()) fail(n.gid + ": pass_through must be null when in_kzt=0");
@@ -382,7 +410,8 @@ json analyze(const json& input, const json& config) {
         top.push_back({{"rank", rank + 1}, {"gid", row["gid"]}, {"role", row["role"]},
             {"priority_score", row["priority_score"]}, {"why", row["why"]}});
     }
-    return {{"schema_version", "1.0"}, {"engine_version", "1.0.0"}, {"nodes", results}, {"top_nodes", top},
+    return {{"schema_version", "1.0"}, {"engine_version", ENGINE_VERSION},
+        {"engine", std::string("money-graph-cpp/") + ENGINE_VERSION}, {"nodes", results}, {"top_nodes", top},
         {"meta", {{"node_count", nodes.size()}, {"edge_count", edges.size()}, {"seed_count", seed_count},
             {"role_counts", role_counts}, {"config", config},
             {"role_score_semantics", "Heuristic rule strength, not calibrated probability"},

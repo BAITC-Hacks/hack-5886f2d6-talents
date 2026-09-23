@@ -50,15 +50,24 @@ def motifs():
     return graph(definitions, edges)
 
 
+def nested_input(flat):
+    nested = copy.deepcopy(flat)
+    fields = ["in_deg", "out_deg", "in_kzt", "out_kzt", "in_tx", "out_tx", "pagerank", "pass_through"]
+    for row in nested["nodes"]:
+        row["metrics"] = {field: row.pop(field) for field in fields if field in row}
+        row["flags"] = {"truncated_by_depth": row.pop("truncated_by_depth", False)}
+    return nested
+
+
 class EngineTests(unittest.TestCase):
-    def invoke(self, data, config=None, raw=False, success=True, unicode_paths=False):
+    def invoke(self, data, config=None, raw=False, success=True, unicode_paths=False, named=False):
         with tempfile.TemporaryDirectory() as tmp:
             folder = Path(tmp) / ("Проверка ядра" if unicode_paths else "case")
             folder.mkdir()
             source, target = folder / "input.json", folder / "result.json"
             source.write_text(data if raw else json.dumps(data, ensure_ascii=False, allow_nan=False), encoding="utf-8")
             target.write_text("previous successful result", encoding="utf-8")
-            args = [str(ENGINE), str(source), str(target)]
+            args = [str(ENGINE), "--input", str(source), "--output", str(target)] if named else [str(ENGINE), str(source), str(target)]
             if config is not None:
                 config_path = folder / "config.json"
                 config_path.write_text(json.dumps(config), encoding="utf-8")
@@ -224,6 +233,63 @@ class EngineTests(unittest.TestCase):
         process = subprocess.run([str(ENGINE), "--print-config"], capture_output=True, encoding="utf-8", check=True)
         self.assertEqual(json.loads(process.stdout), expected_config)
         self.invoke(json.loads((root / "examples/input.json").read_text(encoding="utf-8")))
+
+    def test_nested_and_flat_with_both_cli_styles_are_identical(self):
+        flat = motifs()
+        expected = self.invoke(flat)
+        for payload in [flat, nested_input(flat)]:
+            for named in [False, True]:
+                with self.subTest(nested="metrics" in payload["nodes"][0], named=named):
+                    self.assertEqual(self.invoke(payload, named=named, unicode_paths=True), expected)
+        self.assertEqual(expected["engine"], "money-graph-cpp/" + expected["engine_version"])
+
+    def test_nested_config_overrides_preserve_canonical_scores(self):
+        flat = motifs()
+        config = {"distributor_min_receivers": 100}
+        self.assertEqual(self.invoke(flat, config=config), self.invoke(nested_input(flat), config=config, named=True))
+
+    def test_conflicting_flat_and_nested_fields_rejected(self):
+        for group, field, value in [("metrics", "out_deg", 777), ("flags", "truncated_by_depth", True)]:
+            data = motifs()
+            data["nodes"][0][group] = {field: value}
+            with self.subTest(field=field):
+                self.assertIn("Conflicting", self.invoke(data, success=False, named=True))
+
+    def test_identical_duplicate_fields_and_untrusted_extra_flags(self):
+        flat = motifs()
+        mixed = copy.deepcopy(flat)
+        for row, nested in zip(mixed["nodes"], nested_input(flat)["nodes"]):
+            row["metrics"] = nested["metrics"]
+            row["metrics"]["gid"] = "123456789"  # must never override identity
+            row["flags"] = {**nested["flags"], "pass_through_reliable": True}
+        self.assertEqual(self.invoke(flat), self.invoke(mixed))
+
+    def test_invalid_nested_shape_and_missing_metric(self):
+        for field in ["metrics", "flags"]:
+            data = nested_input(motifs())
+            data["nodes"][0][field] = []
+            self.invoke(data, success=False)
+        data = nested_input(motifs())
+        del data["nodes"][0]["metrics"]["pagerank"]
+        self.invoke(data, success=False)
+
+    def test_named_cli_argument_errors(self):
+        for args in [["--input"], ["--input", "x"], ["--input", "x", "--output"],
+                     ["--input", "x", "--output", "y", "--input", "z"],
+                     ["x", "y", "--input", "x"], ["--unknown", "x"]]:
+            with self.subTest(args=args):
+                process = subprocess.run([str(ENGINE), *args], capture_output=True, encoding="utf-8", timeout=10)
+                self.assertEqual(process.returncode, 2, process.stderr)
+
+    def test_armans_checked_in_payload(self):
+        root = Path(__file__).resolve().parents[2]
+        nested = json.loads((root / "examples/input.json").read_text(encoding="utf-8"))
+        flat = copy.deepcopy(nested)
+        for row in flat["nodes"]:
+            if "metrics" in row:
+                row.update(row.pop("metrics"))
+            row.update(row.pop("flags", {}))
+        self.assertEqual(self.invoke(nested, named=True), self.invoke(flat))
 
 
 if __name__ == "__main__":

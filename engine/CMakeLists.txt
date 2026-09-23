@@ -1,9 +1,10 @@
 cmake_minimum_required(VERSION 3.16)
-project(money_graph_engine VERSION 1.0.0 LANGUAGES CXX)
+project(money_graph_engine VERSION 1.1.0 LANGUAGES CXX)
 
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/config/default.json" DEFAULT_CONFIG_JSON)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS config/default.json)
 configure_file(src/default_config.hpp.in generated/default_config.hpp @ONLY)
+configure_file(src/version.hpp.in generated/version.hpp @ONLY)
 add_executable(engine src/main.cpp src/analysis.cpp)
 target_compile_features(engine PRIVATE cxx_std_17)
 set_target_properties(engine PROPERTIES CXX_EXTENSIONS OFF)

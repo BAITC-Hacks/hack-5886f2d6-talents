@@ -6,6 +6,7 @@
   "properties": {
     "schema_version": {"const": "1.0"},
     "engine_version": {"type": "string"},
+    "engine": {"type": "string", "description": "Legacy Python identification alias; added in engine 1.1.0"},
     "nodes": {"type": "array", "items": {"$ref": "#/$defs/node"}},
     "top_nodes": {"type": "array", "maxItems": 20, "items": {"$ref": "#/$defs/top_node"}},
     "meta": {"type": "object"}
