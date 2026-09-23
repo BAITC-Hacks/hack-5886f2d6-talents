@@ -30,6 +30,7 @@ test('retains all three CSV snapshots and loads a complete newer run only on ref
   const files = fixture(), calls: string[] = [];
   const expected = Object.fromEntries(csvFiles.map(name => [name, files[name]]));
   const bundle = await loadGraphBundle('/data/', new AbortController().signal, serve(files, calls));
+  const expectedActions = bundle.graph.nodes[0].next_actions?.slice();
   assert.equal(bundle.graph.nodes.length, JSON.parse(files['graph.json']).nodes.length);
   assert.equal(calls.filter(name => name === 'run_manifest.json').length, 2);
   for (const name of ['graph.json', ...csvFiles]) assert.equal(calls.filter(called => called === name).length, 1);
@@ -42,7 +43,7 @@ test('retains all three CSV snapshots and loads a complete newer run only on ref
   const manifest = JSON.parse(files['run_manifest.json']);
   manifest.artifact_sha256 = Object.fromEntries(['graph.json', ...csvFiles].map(name => [name, sha256(files[name])]));
   files['run_manifest.json'] = JSON.stringify(manifest);
-  assert.equal(bundle.graph.nodes[0].next_actions, undefined);
+  assert.deepEqual(bundle.graph.nodes[0].next_actions, expectedActions);
   for (const file of bundle.exports) {
     assert.equal(await new Blob([file.bytes], { type: 'text/csv' }).text(), expected[file.name]);
   }
