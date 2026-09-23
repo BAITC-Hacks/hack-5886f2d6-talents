@@ -105,6 +105,100 @@ class EngineTests(unittest.TestCase):
         self.assertTrue(row["features"]["truncated_by_depth"])
         self.assertIn("OUTGOING_INCOMPLETE_AT_DEPTH_LIMIT", row["warnings"])
 
+    def test_next_actions_cover_all_roles_and_external_counts(self):
+        rows = {r["gid"]: r for r in self.invoke(motifs())["nodes"]}
+        for row in rows.values():
+            actions = row["next_actions"]
+            self.assertIsInstance(actions, list)
+            self.assertTrue(1 <= len(actions) <= 3)
+            self.assertEqual(len(actions), len(set(actions)))
+            self.assertTrue(all(isinstance(a, str) and a.strip() and len(a) <= 200 for a in actions))
+        expected = {
+            "10": ("маршруты от 3 seed", "с 2 внешними кластерами", "даты"),
+            "20": ("источники поступлений от 3 отправителей", "даты и суммы"),
+            "30": ("переводы 6 получателей", "даты и суммы"),
+            "40": ("даты входящих и исходящих", "порядок и интервалы"),
+            "41": ("за пределами периода, банка и порога", "гипотезу"),
+            "99": ("полноту выгрузки", "нет наблюдаемых связей"),
+        }
+        for gid, phrases in expected.items():
+            with self.subTest(gid=gid, role=rows[gid]["role"]):
+                self.assertEqual(len(rows[gid]["next_actions"]), 1)
+                for phrase in phrases:
+                    self.assertIn(phrase, rows[gid]["next_actions"][0])
+
+    def test_next_actions_combine_isolation_boundary_and_seed_in_order(self):
+        for self_loop in (False, True):
+            with self.subTest(self_loop=self_loop):
+                data = graph({1: dict(is_seed=True, depth=4)}, [(1, 1, 5000, 1)] if self_loop else [])
+                row = self.invoke(data)["nodes"][0]
+                self.assertEqual(row["role"], "peripheral")
+                actions = row["next_actions"]
+                self.assertEqual(len(actions), 3)
+                if self_loop:
+                    self.assertIn("операции с самим собой", actions[0])
+                    self.assertNotIn("нет наблюдаемых связей", actions[0])
+                else:
+                    self.assertIn("нет наблюдаемых связей", actions[0])
+                self.assertIn("исходящих", actions[1])
+                self.assertIn("depth=4", actions[1])
+                self.assertIn("входящие переводы seed", actions[2])
+
+    def test_next_actions_seed_and_boundary_do_not_suggest_transit_or_terminal(self):
+        for attrs in ({"is_seed": True, "depth": 0}, {"depth": 4}, {"is_seed": True, "depth": 4}):
+            for outgoing in (False, True):
+                with self.subTest(attrs=attrs, outgoing=outgoing):
+                    edges = [(1, 2, 10000, 1)] + ([(2, 3, 10000, 1)] if outgoing else [])
+                    row = self.invoke(graph({1: {}, 2: attrs, 3: {}}, edges))["nodes"][1]
+                    actions = row["next_actions"]
+                    expected_count = 1 + attrs.get("is_seed", False) + (attrs["depth"] == 4)
+                    self.assertEqual(len(actions), expected_count)
+                    joined = " ".join(actions)
+                    self.assertNotIn("в транзит", joined)
+                    self.assertNotIn("конечного получателя", joined)
+                    self.assertNotIn("нет наблюдаемых связей", joined)
+                    self.assertIn("контрагентами", actions[-1])
+                    if attrs["depth"] == 4:
+                        self.assertIn("продолжение исходящих", actions[0])
+                    if attrs.get("is_seed"):
+                        self.assertIn("недостающие входящие", joined)
+
+    def test_next_actions_use_configured_boundary_and_keep_role_action(self):
+        data = graph({1: {}, 2: {}, 3: {}, 4: dict(depth=2, is_seed=True)},
+                     [(s, 4, 10000, 1) for s in (1, 2, 3)])
+        data["nodes"][-1]["truncated_by_depth"] = True
+        row = self.invoke(data, config={"max_depth": 2})["nodes"][-1]
+        self.assertEqual(row["role"], "consolidator")
+        self.assertEqual(len(row["next_actions"]), 3)
+        self.assertIn("depth=2", row["next_actions"][0])
+        self.assertIn("входящие переводы seed", row["next_actions"][1])
+        self.assertIn("источники поступлений от 3 отправителей", row["next_actions"][2])
+
+    def test_next_actions_follow_primary_role_and_config_changes(self):
+        data = motifs()
+        first = self.invoke(data)
+        coordinator = next(r for r in first["nodes"] if r["gid"] == "10")
+        self.assertIn("consolidator", [c["role"] for c in coordinator["role_candidates"]])
+        self.assertEqual(len(coordinator["next_actions"]), 1)
+        self.assertIn("маршруты", coordinator["next_actions"][0])
+        changed = self.invoke(data, config={"distributor_min_receivers": 100})
+        node = next(r for r in changed["nodes"] if r["gid"] == "30")
+        self.assertEqual(node["role"], "transit")
+        self.assertIn("порядок и интервалы", node["next_actions"][0])
+        self.assertNotIn("основания распределения", node["next_actions"][0])
+
+    def test_next_actions_do_not_depend_on_gid(self):
+        data = motifs()
+        original = self.invoke(data)
+        remap = {n["gid"]: str(9223372036854775807 - i) for i, n in enumerate(data["nodes"])}
+        for node in data["nodes"]:
+            node["gid"] = remap[node["gid"]]
+        for edge in data["edges"]:
+            edge["src"], edge["dst"] = remap[edge["src"]], remap[edge["dst"]]
+        renamed = {r["gid"]: r for r in self.invoke(data)["nodes"]}
+        for row in original["nodes"]:
+            self.assertEqual(row["next_actions"], renamed[remap[row["gid"]]]["next_actions"])
+
     def test_boundary_can_still_consolidate(self):
         data = graph({**{s: dict(is_seed=True, depth=0) for s in [1, 2, 3]}, 4: dict(depth=4)},
                      [(s, 4, 10000, 1) for s in [1, 2, 3]])

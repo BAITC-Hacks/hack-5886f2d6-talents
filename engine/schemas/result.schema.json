@@ -35,9 +35,9 @@
         "priority_breakdown": {"type": "object"},
         "warnings": {"type": "array", "items": {"type": "string"}},
         "next_actions": {
-          "type": "array",
-          "description": "Optional analyst checks from the engine; preserve order and text. Absence and an empty array are valid.",
-          "items": {"type": "string", "minLength": 1, "pattern": "\\S"}
+          "description": "Added in engine 1.2.0; optional for older v1 results. Ordered suggestions for analyst verification, not automated requests.",
+          "type": "array", "minItems": 1, "maxItems": 3, "uniqueItems": true,
+          "items": {"$ref": "#/$defs/explanation", "pattern": "\\S"}
         }
       }
     },

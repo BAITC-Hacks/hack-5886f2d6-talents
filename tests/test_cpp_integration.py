@@ -47,6 +47,7 @@ def test_real_pipeline_with_config_and_unicode(engine, tmp_path):
     assert graph['top_nodes'] == result['top_nodes']
     by_gid = {n['gid']: n for n in graph['nodes']}
     for n in result['nodes']:
+        assert 1 <= len(n['next_actions']) <= 3
         for key, value in n.items():
             assert by_gid[n['gid']][key] == value
     assert by_gid['9223372036854775807']['flags']['isolated']
