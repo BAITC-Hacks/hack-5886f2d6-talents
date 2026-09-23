@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(money_graph_engine VERSION 1.2.0 LANGUAGES CXX)
+project(money_graph_engine VERSION 1.3.0 LANGUAGES CXX)
 
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/config/default.json" DEFAULT_CONFIG_JSON)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS config/default.json)

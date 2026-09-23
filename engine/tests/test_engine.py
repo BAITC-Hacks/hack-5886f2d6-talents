@@ -1,6 +1,7 @@
 """CLI regression tests; Python standard library only. No dataset dependencies."""
 import copy
 import json
+import math
 from pathlib import Path
 import random
 import subprocess
@@ -81,6 +82,164 @@ class EngineTests(unittest.TestCase):
             self.assertEqual(output, "previous successful result")
             self.assertIn("engine:", process.stderr)
             return process.stderr
+
+    def check_resilience_reference(self, data, result):
+        """Independent oracle: rank from raw edges, then traverse an undirected view."""
+        resilience = result["meta"]["resilience"]
+        self.assertEqual(resilience["schema_version"], "1.0")
+        self.assertEqual(resilience["connectivity"], "weak")
+        self.assertEqual(resilience["scope"], "observed_graph")
+        ids = {node["gid"] for node in data["nodes"]}
+        observed_in = dict.fromkeys(ids, 0.0)
+        observed_out = dict.fromkeys(ids, 0.0)
+        for edge in data["edges"]:
+            if edge["src"] != edge["dst"]:
+                observed_in[edge["dst"]] += edge["sum_kzt"]
+                observed_out[edge["src"]] += edge["sum_kzt"]
+        priority = {node["gid"]: node["priority_score"] for node in result["nodes"]}
+        rankings = {
+            "baseline": [],
+            "priority": sorted(ids, key=lambda gid: (-priority[gid], int(gid))),
+            "volume": sorted(ids, key=lambda gid: (-max(observed_in[gid], observed_out[gid]), int(gid))),
+        }
+        expected_order = [(strategy, k) for strategy in ("priority", "volume") for k in (1, 3, 5, 10)]
+        self.assertEqual([(s["strategy"], s["requested_k"]) for s in resilience["scenarios"]], expected_order)
+        total = math.fsum(edge["sum_kzt"] for edge in data["edges"])
+        integer_fields = ("remaining_nodes", "remaining_edges", "weak_components", "isolated_nodes", "largest_component_nodes")
+        for scenario, (strategy, k) in zip([resilience["baseline"], *resilience["scenarios"]], [("baseline", 0), *expected_order]):
+            with self.subTest(strategy=strategy, k=k):
+                selected = rankings[strategy][:k]
+                self.assertEqual(scenario["strategy"], strategy)
+                self.assertEqual(scenario["requested_k"], k)
+                self.assertEqual(scenario["removed_gids"], selected)
+                self.assertTrue(all(isinstance(gid, str) for gid in scenario["removed_gids"]))
+                removed = set(selected)
+                remaining = ids - removed
+                adjacency = {gid: set() for gid in remaining}
+                kept_edges, removed_amounts = 0, []
+                for edge in data["edges"]:
+                    src, dst = edge["src"], edge["dst"]
+                    if src in removed or dst in removed:
+                        removed_amounts.append(edge["sum_kzt"])
+                    else:
+                        kept_edges += 1
+                        if src != dst:
+                            adjacency[src].add(dst)
+                            adjacency[dst].add(src)
+                unseen, component_sizes = set(remaining), []
+                while unseen:
+                    pending = [unseen.pop()]
+                    size = 0
+                    while pending:
+                        current = pending.pop()
+                        size += 1
+                        neighbors = adjacency[current] & unseen
+                        unseen.difference_update(neighbors)
+                        pending.extend(neighbors)
+                    component_sizes.append(size)
+                largest = max(component_sizes, default=0)
+                expected_counts = (len(remaining), kept_edges, len(component_sizes),
+                                   sum(not neighbors for neighbors in adjacency.values()), largest)
+                for key, expected in zip(integer_fields, expected_counts):
+                    self.assertIs(type(scenario[key]), int)
+                    self.assertEqual(scenario[key], expected, key)
+                removed_amount = math.fsum(removed_amounts)
+                self.assertAlmostEqual(scenario["removed_edge_sum_kzt"], removed_amount)
+                self.assertAlmostEqual(scenario["removed_edge_sum_share"], removed_amount / total if total else 0)
+                self.assertAlmostEqual(scenario["largest_component_share_remaining"], largest / len(remaining) if remaining else 0)
+                for key in ("removed_edge_sum_kzt", "removed_edge_sum_share", "largest_component_share_remaining"):
+                    self.assertTrue(math.isfinite(scenario[key]), key)
+                    self.assertGreaterEqual(scenario[key], 0, key)
+                for key in ("removed_edge_sum_share", "largest_component_share_remaining"):
+                    self.assertLessEqual(scenario[key], 1, key)
+        for strategy in ("priority", "volume"):
+            scenarios = [resilience["baseline"], *[s for s in resilience["scenarios"] if s["strategy"] == strategy]]
+            for earlier, later in zip(scenarios, scenarios[1:]):
+                for key in ("largest_component_nodes", "remaining_edges", "remaining_nodes"):
+                    self.assertLessEqual(later[key], earlier[key], (strategy, key))
+        return resilience
+
+    def test_resilience_chain_middle_removal(self):
+        data = graph({10: {}, 1: {}, 20: {}}, [(10, 1, 5000, 1), (1, 20, 5000, 1)])
+        resilience = self.check_resilience_reference(data, self.invoke(data))
+        first = resilience["scenarios"][4]
+        self.assertEqual(first["removed_gids"], ["1"])
+        self.assertEqual((first["weak_components"], first["isolated_nodes"], first["largest_component_nodes"]), (2, 2, 1))
+        self.assertEqual(first["removed_edge_sum_kzt"], 10000)
+
+    def test_resilience_star_hub_removal(self):
+        data = graph({i: {} for i in (1, 2, 3, 4, 50)}, [(50, i, 5000, 1) for i in (1, 2, 3, 4)])
+        resilience = self.check_resilience_reference(data, self.invoke(data))
+        first = resilience["scenarios"][4]
+        self.assertEqual(first["removed_gids"], ["50"])
+        self.assertEqual((first["remaining_nodes"], first["remaining_edges"], first["weak_components"], first["isolated_nodes"]), (4, 0, 4, 4))
+
+    def test_resilience_cycle_and_disconnected_isolated_seed(self):
+        data = graph({1: {}, 2: {}, 3: {}, 4: {}, 5: {}, 99: dict(is_seed=True, depth=0)},
+                     [(1, 2, 10000, 1), (2, 3, 10000, 1), (3, 1, 10000, 1), (4, 5, 5000, 1)])
+        resilience = self.check_resilience_reference(data, self.invoke(data))
+        baseline, first = resilience["baseline"], resilience["scenarios"][4]
+        self.assertEqual((baseline["weak_components"], baseline["isolated_nodes"], baseline["largest_component_nodes"]), (3, 1, 3))
+        self.assertEqual((first["weak_components"], first["largest_component_nodes"]), (3, 2))
+
+    def test_resilience_reciprocals_loops_and_removed_edge_counted_once(self):
+        data = graph({1: {}, 2: {}, 3: {}, 4: {}, 5: {}},
+                     [(1, 2, 10000, 1), (2, 1, 20000, 1), (2, 2, 1000000, 1), (3, 4, 5000, 1)])
+        resilience = self.check_resilience_reference(data, self.invoke(data))
+        first, three = resilience["scenarios"][4:6]
+        # Self-transfer must not put 2 ahead of 1: both external volumes are 20000.
+        self.assertEqual(first["removed_gids"], ["1"])
+        self.assertEqual((first["remaining_edges"], first["removed_edge_sum_kzt"]), (2, 30000))
+        self.assertEqual(three["removed_gids"], ["1", "2", "3"])
+        self.assertEqual(three["removed_edge_sum_kzt"], 1035000)
+        self.assertEqual(three["removed_edge_sum_share"], 1)
+
+    def test_resilience_self_loop_is_isolated_and_excluded_from_ranking(self):
+        data = graph({10: {}, 2: {}}, [(10, 10, 1e12, 1)])
+        resilience = self.check_resilience_reference(data, self.invoke(data))
+        self.assertEqual(resilience["baseline"]["isolated_nodes"], 2)
+        self.assertEqual(resilience["baseline"]["remaining_edges"], 1)
+        first = resilience["scenarios"][4]
+        self.assertEqual(first["removed_gids"], ["2"])
+        self.assertEqual((first["isolated_nodes"], first["remaining_edges"], first["removed_edge_sum_kzt"]), (1, 1, 0))
+
+    def test_resilience_empty_singleton_and_all_removed(self):
+        for data in (graph({}, []), graph({1: {}}, []), graph({1: {}}, [(1, 1, 5000, 1)])):
+            with self.subTest(nodes=len(data["nodes"]), edges=len(data["edges"])):
+                resilience = self.check_resilience_reference(data, self.invoke(data))
+                for scenario in resilience["scenarios"]:
+                    self.assertEqual(scenario["remaining_nodes"], 0)
+                    self.assertEqual(scenario["weak_components"], 0)
+                    self.assertEqual(scenario["largest_component_share_remaining"], 0)
+                    self.assertEqual(len(scenario["removed_gids"]), len(data["nodes"]))
+
+    def test_resilience_numeric_ties_and_permutations(self):
+        data = graph({10: {}, 2: {}, -7: {}, 9223372036854775807: {}}, [])
+        result = self.invoke(data)
+        resilience = self.check_resilience_reference(data, result)
+        for scenario in resilience["scenarios"]:
+            self.assertEqual(scenario["removed_gids"], ["-7", "2", "10", "9223372036854775807"][:scenario["requested_k"]])
+        data["nodes"].reverse()
+        self.assertEqual(result, self.invoke(data))
+
+    def test_resilience_random_graphs_match_independent_reference(self):
+        rng = random.Random(20260923)
+        for size in (2, 7, 12, 29):
+            definitions = {i * 11 - 37: dict(is_seed=i < 2, depth=0 if i < 2 else 1, cluster_id=i % 3) for i in range(size)}
+            edges = [(src, dst, rng.randint(1, 100) * 5000, rng.randint(1, 4))
+                     for src in definitions for dst in definitions if rng.random() < 0.13]
+            data = graph(definitions, edges)
+            with self.subTest(size=size):
+                result = self.invoke(data)
+                self.check_resilience_reference(data, result)
+                rng.shuffle(data["nodes"])
+                rng.shuffle(data["edges"])
+                self.assertEqual(result, self.invoke(data))
+
+    def test_resilience_global_amount_overflow_preserves_previous_output(self):
+        # Each node total is finite; only the newly required graph total overflows double.
+        data = graph({1: {}, 2: {}, 3: {}, 4: {}}, [(1, 2, 1e308, 1), (3, 4, 1e308, 1)])
+        self.invoke(data, success=False)
 
     def test_all_six_roles(self):
         result = self.invoke(motifs())

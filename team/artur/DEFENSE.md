@@ -1,7 +1,7 @@
 # Артур — шпаргалка для защиты C++-ядра
 
 Материал для возможного Demo Day 29 сентября. До завершения разработки
-приоритеты определяет [план технической сдачи](../TECHNICAL_REVIEW.md).
+приоритеты определяет [план технической сдачи](../../docs/archive/team/TECHNICAL_REVIEW.md).
 
 Сверено с полным `out/graph.json`: Python `ad6b1d5`, C++ 1.1.0,
 настройки по умолчанию. Интеграция опубликована коммитом `c7f7bb4`.
@@ -157,5 +157,5 @@ priority = 0.35*sat(S,5) + 0.30*Q(max(I,O))
 Источники: [правила и формулы](../../engine/README.md),
 [конфигурация](../../engine/config/default.json),
 [реализация](../../engine/src/analysis.cpp),
-[отчёт интеграции](../../engine/INTEGRATION.md),
-[план команды](../NEXT_STEPS.md).
+[отчёт интеграции](../../docs/archive/engine/INTEGRATION.md),
+[план команды](../../docs/archive/team/NEXT_STEPS.md).

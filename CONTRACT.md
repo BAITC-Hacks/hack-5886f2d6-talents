@@ -76,7 +76,7 @@ Louvain: вес суммы двух направлений, исключение
 
 engine/examples — канонические примеры автора ядра. examples/input.json, result.json и graph.json — маленький синтетический прогон Python-интеграции; пересоздание: `python make_examples.py --core engine/build/engine.exe`. Без C++ доступен явный `--demo`.
 
-Полный прогон: `python pipeline.py --out out`. Действующий каталог интерфейса — `frontend/public/data/`: UI читает `/data/graph.json` и скачивает три соседних CSV. Обновлять весь комплект одним запуском `python prepare_ui_data.py`, затем проверять `python verify_outputs.py`; JSON, CSV и manifest должны относиться к одному прогону. Запуск UI из корня: `cd frontend`, `npm ci`, `npm run dev`. Версии и результаты проверки совместимости: [отчёт](frontend/VERIFICATION.md). Командная приёмка на втором ноутбуке остаётся отдельным шагом.
+Полный прогон: `python pipeline.py --out out`. Действующий каталог интерфейса — `frontend/public/data/`: UI читает `/data/graph.json` и скачивает три соседних CSV. Обновлять весь комплект одним запуском `python prepare_ui_data.py`, затем проверять `python verify_outputs.py`; JSON, CSV и manifest должны относиться к одному прогону. Запуск UI из корня: `cd frontend`, `npm ci`, `npm run dev`. Версии и результаты проверки совместимости: [отчёт](docs/archive/frontend/VERIFICATION.md). Командная приёмка на втором ноутбуке остаётся отдельным шагом.
 
 Публикация заменяет файлы из staging, manifest — последним. Только временные
 ошибки `os.replace` с Windows-кодами 5/32/33 повторяются с задержкой до 50 мс.
@@ -90,3 +90,4 @@ manifest и сообщение `complete` не публикуются. Уже з
 последней заменой уже успел записаться полный согласованный manifest.
 В таком случае нужно повторить полный запуск. Для демонстрации сохраняется
 порядок остановить Vite → пересчитать → запустить из [DEMO.md](frontend/DEMO.md).
+
