@@ -3,7 +3,7 @@
   "status": "complete",
   "demo": false,
   "engine": "cpp-1.1.0",
-  "elapsed_worker_seconds": 2.015,
+  "elapsed_worker_seconds": 2.328,
   "counts": {
     "nodes": 2248,
     "edges": 3119,
@@ -33,7 +33,7 @@
     "edges.parquet": "4e71dde5cd3115bcb26e91202665532ee6581cf8233a9fc8059ea59fb7358a38",
     "transactions.parquet": "c30c5317b5439591dde86f2058dc47a3d19b2900c055ded994fe547f6fb7e7da"
   },
-  "engine_sha256": "db68dec6a08ee58e05e7eeed9a52c214181afddcec4f7621ca7471a113a6c04d",
+  "engine_sha256": "2f11636b7fe7019682e590ba05022ad86f362b4848bf52ca7dc5d75c0202426c",
   "engine_version": "1.1.0",
   "engine_config": {
     "boundary_role_multiplier": 0.8,
@@ -60,8 +60,8 @@
     "transit_ratio_min": 0.8
   },
   "artifact_sha256": {
-    "clusters.csv": "ad763398ba39f1bf222cf8273abf70cbe6d6a69d49f5781968e691b209d3afe6",
-    "graph.json": "0feac3b3d9e78df3a314116eefc96ec82b6d1b0bd251ab2653fd86e477adc95a",
+    "clusters.csv": "1914cb2693e2891c2390d07bb76b194125b05f030380a03f9e895bf8ab528425",
+    "graph.json": "c21f59552885f493de55164b8d891067ccac07e2c6d9613d28697062b7898c0e",
     "input.json": "7e4633961e9323598545cda919c4130c07faff9e296bd50c94442dc75753d946",
     "nodes_roles.csv": "5168ac63bf3a8f7dfe15aa3e807d6b2a68e0602fbdacc5777ff6c1c08c74bae8",
     "result.json": "608d9cd24a1ac14a0c3e87ea977fc401c072b99aaee79629d512c1ef3d00e0a8",

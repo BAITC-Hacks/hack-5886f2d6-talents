@@ -1,4 +1,5 @@
 import hashlib
+import csv
 import json
 from pathlib import Path
 import threading
@@ -80,6 +81,46 @@ def test_corrupt_or_mixed_bundle_is_rejected(bundle, mutation):
         path.write_text(path.read_text(encoding='utf-8').replace('peripheral', 'terminal'), encoding='utf-8')
         rehash(bundle, 'top_nodes.csv')
     with pytest.raises(ValueError): verify_bundle(bundle, allow_demo=True)
+
+
+def rewrite_csv_cell(out, filename, column, value):
+    path = out/filename
+    with path.open(encoding='utf-8', newline='') as stream:
+        reader = csv.DictReader(stream)
+        columns, rows = reader.fieldnames, list(reader)
+    rows[0][column] = value(rows[0][column]) if callable(value) else value
+    with path.open('w', encoding='utf-8', newline='') as stream:
+        writer = csv.DictWriter(stream, fieldnames=columns, lineterminator='\n')
+        writer.writeheader()
+        writer.writerows(rows)
+    rehash(out, filename)
+
+
+@pytest.mark.parametrize('hypothesis', ['', ' \t\n ', None, 17])
+def test_cluster_hypothesis_requires_nonempty_text_even_with_valid_hashes(bundle, hypothesis):
+    graph = strict_json(bundle/'graph.json')
+    graph['clusters'][0]['hypothesis'] = hypothesis
+    write_json(bundle/'graph.json', graph)
+    rehash(bundle, 'graph.json')
+    rewrite_csv_cell(bundle, 'clusters.csv', 'hypothesis', hypothesis)
+    with pytest.raises(ValueError, match='hypothesis must be nonempty text'):
+        verify_bundle(bundle, allow_demo=True)
+
+
+@pytest.mark.parametrize('filename,column,suffix', [
+    ('nodes_roles.csv', 'cluster_id', '.0'),
+    ('nodes_roles.csv', 'cluster_id', '.0000000001'),
+    ('clusters.csv', 'cluster_id', '.0000000000000000000001'),
+    ('top_nodes.csv', 'rank', '.0'),
+    ('top_nodes.csv', 'rank', '.0000000000000000000001'),
+    ('clusters.csv', 'n_nodes', '.0000000001'),
+    ('clusters.csv', 'n_seed', '.0000000000000000000001'),
+])
+def test_csv_integer_fields_reject_fractional_or_float_spelling(bundle, filename, column, suffix):
+    # Rehashing models a writer bug, so consistency checks must catch this too.
+    rewrite_csv_cell(bundle, filename, column, lambda value: value + suffix)
+    with pytest.raises(ValueError):
+        verify_bundle(bundle, allow_demo=True)
 
 
 def test_exact_downloads_over_http(bundle):

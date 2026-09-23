@@ -1,0 +1,29 @@
+{
+  "status": "passed",
+  "engine_version": "1.1.0",
+  "is_demo": false,
+  "counts": {
+    "nodes": 2248,
+    "edges": 3119,
+    "clusters": 88,
+    "top_nodes": 20
+  },
+  "manifest_sha256": "244a2add00264e10cf730c537a8d0d264a25bccf522c0565890663e72c6a3901",
+  "validated_artifact_count": 7,
+  "source_hashes_checked": true,
+  "engine_hash_checked": true,
+  "http_downloads_checked": 6,
+  "repeat_artifacts_byte_identical": true,
+  "node_results_unchanged_by_cluster_hypotheses": true,
+  "pipeline_report": {
+    "status": "passed",
+    "n_nodes": 2248,
+    "n_edges": 3119,
+    "n_isolated": 19,
+    "n_clusters": 88,
+    "engine_version": "1.1.0",
+    "failures": [],
+    "warnings": [],
+    "elapsed_wall_seconds": 3.263
+  }
+}
