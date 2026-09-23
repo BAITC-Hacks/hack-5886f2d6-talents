@@ -9,3 +9,4 @@ build/
 out/
 out-demo/
 *.exe
+/frontend/public/data/core.*.log

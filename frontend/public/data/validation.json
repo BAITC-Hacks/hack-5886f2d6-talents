@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "n_nodes": 2248,
+  "n_edges": 3119,
+  "n_transactions": 4840,
+  "n_seed": 81,
+  "n_isolated": 19,
+  "n_isolated_seed": 19,
+  "sum_kzt": 365890012.01,
+  "max_pair_amount_error_kzt": 5.820766091346741e-11,
+  "period_start": "2026-07-01T00:00:00",
+  "period_end": "2026-07-31T00:00:00",
+  "identical_transaction_rows": 97,
+  "warnings": [
+    "97 identical transaction rows retained: no transaction_id to prove duplicates"
+  ],
+  "n_weak_components_with_isolates": 35,
+  "n_self_loops": 0
+}

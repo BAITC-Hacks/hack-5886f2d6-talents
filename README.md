@@ -46,6 +46,36 @@ python pipeline.py --prepare-only --out prepared
 
 Для разработки без компилятора доступен отдельный `python pipeline.py --demo --out out-demo`. Это Python demo-эвристика, не расчёт C++ Артура: `meta.is_demo=true`, `engine=python-demo-v1`. Автоматического переключения на неё при ошибке C++ нет.
 
+## Передача данных интерфейсу
+
+Готовый набор настоящего C++ 1.1.0 находится в [`frontend/public/data/`](frontend/public/data/). Интерфейс Савелия ещё не добавлен; готовые URL для него — `/data/graph.json`, `/data/nodes_roles.csv`, `/data/clusters.csv`, `/data/top_nodes.csv`. Ни package.json, ни команда запуска приложения пока не предполагаются.
+
+Пересчитать и проверить этот набор одной командой:
+
+```powershell
+python prepare_ui_data.py
+```
+
+Без пересчёта проверить хэши и согласованность уже переданного набора:
+
+```powershell
+python verify_outputs.py
+```
+
+Команда требует все шесть файлов передачи (три CSV, graph.json, validation.json, run_manifest.json), а также input/result как подтверждение исходных значений. Проверяет состав узлов, топ, поля C++, внутренние суммы и хэши, включая validation.json. По умолчанию отклоняет Python-demo. Для сверки с файлами Parquet и используемым бинарником добавить `--data "TechTask/data(1)/data" --core engine/build/engine.exe`.
+
+Файлы набора хранятся в Git без преобразования переводов строк благодаря .gitattributes, поэтому хэши работают после checkout на Windows и Linux. Логи с локальными путями не включены в Git. После нового расчёта сохраняйте весь набор вместе, не смешивайте файлы разных прогонов.
+
+Пока приложения нет, проверить отдачу всех файлов можно стандартным статическим сервером:
+
+```powershell
+python -m http.server 8000 --bind 127.0.0.1 --directory frontend/public
+# Второй терминал:
+python verify_outputs.py --base-url http://127.0.0.1:8000/data
+```
+
+Это проверка файлов по HTTP, не готовый экран аналитика. Подробности — [frontend/README.md](frontend/README.md). Чистая установка и пересчёт на этом же компьютере проверены; фактический запуск на втором ноутбуке ещё нужен: [инструкция и результаты](team/arman/REPRODUCIBILITY.md). Для защиты подготовлен [разбор данных и кластеров](team/arman/DATA_AND_CLUSTERS.md).
+
 ## Результаты и интерфейс
 
 | Файл | Содержимое |
