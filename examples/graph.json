@@ -1,6 +1,31 @@
 {
   "schema_version": "1.0",
   "meta": {
+    "config": {
+      "boundary_role_multiplier": 0.8,
+      "consolidator_min_in_percentile": 0.5,
+      "consolidator_min_senders": 3,
+      "coordinator_min_external_clusters": 2,
+      "coordinator_min_receivers": 2,
+      "coordinator_min_seeds": 3,
+      "coordinator_min_senders": 2,
+      "coordinator_min_volume_percentile": 0.75,
+      "distributor_min_out_percentile": 0.5,
+      "distributor_min_receivers": 5,
+      "max_depth": 4,
+      "priority_cluster_saturation": 3,
+      "priority_seed_saturation": 5,
+      "priority_weights": {
+        "counterparties": 0.2,
+        "external_clusters": 0.15,
+        "seed_reach": 0.35,
+        "volume": 0.3
+      },
+      "seed_role_multiplier": 0.85,
+      "transit_ratio_max": 1.2,
+      "transit_ratio_min": 0.8
+    },
+    "edge_count": 2,
     "limitations": [
       "Роли и кластеры — гипотезы для проверки, не выводы о виновности.",
       "Depth=4 — граница наблюдений; отсутствие исходящих не доказывает конечное получение.",
@@ -8,6 +33,14 @@
       "Видны только внутрибанковские переводы за июль 2026 от 5000 KZT.",
       "Связь с seed и членство в сообществе сами по себе не доказывают причастность."
     ],
+    "node_count": 4,
+    "priority_semantics": "Review priority, not probability of wrongdoing",
+    "role_counts": {
+      "peripheral": 3,
+      "transit": 1
+    },
+    "role_score_semantics": "Heuristic rule strength, not calibrated probability",
+    "seed_count": 2,
     "clustering": {
       "algorithm": "louvain",
       "seed": 42,
@@ -34,8 +67,51 @@
     },
     "synthetic_example": true,
     "note": "Tiny protocol example, not a complete BFS extract or submission dataset.",
-    "engine": "python-demo-v1",
-    "demo": true
+    "engine": "cpp-1.0.0",
+    "demo": true,
+    "is_demo": true,
+    "engine_meta": {
+      "config": {
+        "boundary_role_multiplier": 0.8,
+        "consolidator_min_in_percentile": 0.5,
+        "consolidator_min_senders": 3,
+        "coordinator_min_external_clusters": 2,
+        "coordinator_min_receivers": 2,
+        "coordinator_min_seeds": 3,
+        "coordinator_min_senders": 2,
+        "coordinator_min_volume_percentile": 0.75,
+        "distributor_min_out_percentile": 0.5,
+        "distributor_min_receivers": 5,
+        "max_depth": 4,
+        "priority_cluster_saturation": 3,
+        "priority_seed_saturation": 5,
+        "priority_weights": {
+          "counterparties": 0.2,
+          "external_clusters": 0.15,
+          "seed_reach": 0.35,
+          "volume": 0.3
+        },
+        "seed_role_multiplier": 0.85,
+        "transit_ratio_max": 1.2,
+        "transit_ratio_min": 0.8
+      },
+      "edge_count": 2,
+      "limitations": [
+        "Directed reachability is not proof of provenance or time-ordered money flow",
+        "Only intrabank transfers >=5000 KZT in the observed month are available",
+        "No full account balances; depth boundary and seed inflows are incomplete",
+        "Clusters and rule thresholds are hypotheses, not labels of criminal organizations"
+      ],
+      "node_count": 4,
+      "priority_semantics": "Review priority, not probability of wrongdoing",
+      "role_counts": {
+        "peripheral": 3,
+        "transit": 1
+      },
+      "role_score_semantics": "Heuristic rule strength, not calibrated probability",
+      "seed_count": 2
+    },
+    "engine_version": "1.0.0"
   },
   "nodes": [
     {
@@ -43,6 +119,18 @@
       "depth": 0,
       "is_seed": true,
       "cluster_id": 0,
+      "in_deg": 0,
+      "out_deg": 1,
+      "in_kzt": 0.0,
+      "out_kzt": 10000.0,
+      "in_tx": 0,
+      "out_tx": 2,
+      "pagerank": 0.1557026080042699,
+      "pass_through": null,
+      "seed_in_neighbors": 0,
+      "neighbor_clusters": 1,
+      "turnover_kzt": 10000.0,
+      "truncated_by_depth": false,
       "metrics": {
         "in_deg": 0,
         "out_deg": 1,
@@ -64,16 +152,81 @@
         "pass_through_reliable": false
       },
       "role": "peripheral",
-      "role_score": 0.25,
-      "priority_score": 0.47438162,
-      "evidence": "Гипотеза периферии: входов=0, выходов=1; явных признаков роли нет. Вход seed неполон.",
-      "why": "Гипотеза для проверки: оборот=10000 KZT, PageRank=0.155703, прямых плательщиков-seed=0; роль=peripheral. Входящие seed неполны."
+      "role_score": 0.0,
+      "priority_score": 0.43333333333333335,
+      "evidence": "Недостаточно признаков роли: отправителей 0, получателей 1, достижим из 0 seed. Seed: входящие неполны.",
+      "why": "Приоритет проверки: достижим из 0 seed; max(вход,выход)=10000 KZT; контрагентов 1; внешних кластеров 0.",
+      "features": {
+        "boundary_node": false,
+        "counterparty_count": 1,
+        "counterparty_percentile": 0.6666666666666666,
+        "cross_cluster_edges": 0,
+        "direct_seed_senders": 0,
+        "external_cluster_count": 0,
+        "in_percentile": 0.0,
+        "min_seed_hops": null,
+        "nonself_in_deg": 0,
+        "nonself_out_deg": 1,
+        "observed_in_kzt": 0.0,
+        "observed_out_kzt": 10000.0,
+        "observed_pass_through": null,
+        "out_percentile": 1.0,
+        "seed_reach_count": 0,
+        "truncated_by_depth": false,
+        "volume_percentile": 1.0
+      },
+      "role_candidates": [
+        {
+          "role": "peripheral",
+          "score": 0.0
+        }
+      ],
+      "priority_breakdown": {
+        "counterparties": {
+          "contribution": 0.13333333333333333,
+          "signal": 0.6666666666666666,
+          "weight": 0.2
+        },
+        "external_clusters": {
+          "contribution": 0.0,
+          "signal": 0.0,
+          "weight": 0.15
+        },
+        "seed_reach": {
+          "contribution": 0.0,
+          "signal": 0.0,
+          "weight": 0.35
+        },
+        "volume": {
+          "contribution": 0.3,
+          "signal": 1.0,
+          "weight": 0.3
+        }
+      },
+      "warnings": [
+        "OBSERVED_SUBGRAPH_ONLY",
+        "ROLE_IS_HYPOTHESIS",
+        "SEED_INCOMING_INCOMPLETE",
+        "OBSERVED_OUTFLOW_EXCEEDS_INFLOW"
+      ]
     },
     {
       "gid": "100000000000000002",
       "depth": 1,
       "is_seed": false,
       "cluster_id": 0,
+      "in_deg": 1,
+      "out_deg": 1,
+      "in_kzt": 10000.0,
+      "out_kzt": 9000.0,
+      "in_tx": 2,
+      "out_tx": 1,
+      "pagerank": 0.2880498248078993,
+      "pass_through": 0.9,
+      "seed_in_neighbors": 1,
+      "neighbor_clusters": 1,
+      "turnover_kzt": 19000.0,
+      "truncated_by_depth": false,
       "metrics": {
         "in_deg": 1,
         "out_deg": 1,
@@ -95,16 +248,79 @@
         "pass_through_reliable": true
       },
       "role": "transit",
-      "role_score": 0.65,
-      "priority_score": 0.72645287,
-      "evidence": "Гипотеза транзита: выход/вход=0.90, входов=1, выходов=1; совпадение сумм не доказывает маршрут.",
-      "why": "Гипотеза для проверки: оборот=19000 KZT, PageRank=0.288050, прямых плательщиков-seed=1; роль=transit."
+      "role_score": 0.75,
+      "priority_score": 0.5700000000000001,
+      "evidence": "Признаки транзита: вход 10000, выход 9000 KZT; выход/вход=0.90. Совпадение сумм не доказывает движение тех же денег.",
+      "why": "Приоритет проверки: достижим из 1 seed; max(вход,выход)=10000 KZT; контрагентов 2; внешних кластеров 0.",
+      "features": {
+        "boundary_node": false,
+        "counterparty_count": 2,
+        "counterparty_percentile": 1.0,
+        "cross_cluster_edges": 0,
+        "direct_seed_senders": 1,
+        "external_cluster_count": 0,
+        "in_percentile": 1.0,
+        "min_seed_hops": 1,
+        "nonself_in_deg": 1,
+        "nonself_out_deg": 1,
+        "observed_in_kzt": 10000.0,
+        "observed_out_kzt": 9000.0,
+        "observed_pass_through": 0.9,
+        "out_percentile": 0.5,
+        "seed_reach_count": 1,
+        "truncated_by_depth": false,
+        "volume_percentile": 1.0
+      },
+      "role_candidates": [
+        {
+          "role": "transit",
+          "score": 0.75
+        }
+      ],
+      "priority_breakdown": {
+        "counterparties": {
+          "contribution": 0.2,
+          "signal": 1.0,
+          "weight": 0.2
+        },
+        "external_clusters": {
+          "contribution": 0.0,
+          "signal": 0.0,
+          "weight": 0.15
+        },
+        "seed_reach": {
+          "contribution": 0.06999999999999999,
+          "signal": 0.2,
+          "weight": 0.35
+        },
+        "volume": {
+          "contribution": 0.3,
+          "signal": 1.0,
+          "weight": 0.3
+        }
+      },
+      "warnings": [
+        "OBSERVED_SUBGRAPH_ONLY",
+        "ROLE_IS_HYPOTHESIS"
+      ]
     },
     {
       "gid": "100000000000000003",
       "depth": 4,
       "is_seed": false,
       "cluster_id": 0,
+      "in_deg": 1,
+      "out_deg": 0,
+      "in_kzt": 9000.0,
+      "out_kzt": 0.0,
+      "in_tx": 1,
+      "out_tx": 0,
+      "pagerank": 0.4005449591835609,
+      "pass_through": 0.0,
+      "seed_in_neighbors": 0,
+      "neighbor_clusters": 1,
+      "turnover_kzt": 9000.0,
+      "truncated_by_depth": true,
       "metrics": {
         "in_deg": 1,
         "out_deg": 0,
@@ -127,15 +343,79 @@
       },
       "role": "peripheral",
       "role_score": 0.0,
-      "priority_score": 0.34407442,
-      "evidence": "Граница depth=4: входов=1; исходящие не наблюдаются, роль не установлена.",
-      "why": "Гипотеза для проверки: оборот=9000 KZT, PageRank=0.400545, прямых плательщиков-seed=0; роль=peripheral. Граница depth=4: нужны исходящие за пределами обхода."
+      "priority_score": 0.3033333333333333,
+      "evidence": "Недостаточно признаков роли: отправителей 1, получателей 0, достижим из 1 seed. Граница обхода; исходящие неполны.",
+      "why": "Приоритет проверки: достижим из 1 seed; max(вход,выход)=9000 KZT; контрагентов 1; внешних кластеров 0.",
+      "features": {
+        "boundary_node": true,
+        "counterparty_count": 1,
+        "counterparty_percentile": 0.6666666666666666,
+        "cross_cluster_edges": 0,
+        "direct_seed_senders": 0,
+        "external_cluster_count": 0,
+        "in_percentile": 0.5,
+        "min_seed_hops": 2,
+        "nonself_in_deg": 1,
+        "nonself_out_deg": 0,
+        "observed_in_kzt": 9000.0,
+        "observed_out_kzt": 0.0,
+        "observed_pass_through": 0.0,
+        "out_percentile": 0.0,
+        "seed_reach_count": 1,
+        "truncated_by_depth": true,
+        "volume_percentile": 0.3333333333333333
+      },
+      "role_candidates": [
+        {
+          "role": "peripheral",
+          "score": 0.0
+        }
+      ],
+      "priority_breakdown": {
+        "counterparties": {
+          "contribution": 0.13333333333333333,
+          "signal": 0.6666666666666666,
+          "weight": 0.2
+        },
+        "external_clusters": {
+          "contribution": 0.0,
+          "signal": 0.0,
+          "weight": 0.15
+        },
+        "seed_reach": {
+          "contribution": 0.06999999999999999,
+          "signal": 0.2,
+          "weight": 0.35
+        },
+        "volume": {
+          "contribution": 0.09999999999999999,
+          "signal": 0.3333333333333333,
+          "weight": 0.3
+        }
+      },
+      "warnings": [
+        "OBSERVED_SUBGRAPH_ONLY",
+        "ROLE_IS_HYPOTHESIS",
+        "OUTGOING_INCOMPLETE_AT_DEPTH_LIMIT"
+      ]
     },
     {
       "gid": "100000000000000004",
       "depth": 0,
       "is_seed": true,
       "cluster_id": 1,
+      "in_deg": 0,
+      "out_deg": 0,
+      "in_kzt": 0.0,
+      "out_kzt": 0.0,
+      "in_tx": 0,
+      "out_tx": 0,
+      "pagerank": 0.1557026080042699,
+      "pass_through": null,
+      "seed_in_neighbors": 0,
+      "neighbor_clusters": 0,
+      "turnover_kzt": 0.0,
+      "truncated_by_depth": false,
       "metrics": {
         "in_deg": 0,
         "out_deg": 0,
@@ -158,13 +438,67 @@
       },
       "role": "peripheral",
       "role_score": 0.0,
-      "priority_score": 0,
-      "evidence": "Нет наблюдаемых переводов; роль не установлена. Периферия — техническая метка.",
-      "why": "Нет наблюдаемых связей; приоритет 0 отражает нехватку данных, а не отсутствие риска."
+      "priority_score": 0.0,
+      "evidence": "Недостаточно признаков роли: отправителей 0, получателей 0, достижим из 0 seed. Seed: входящие неполны.",
+      "why": "Приоритет проверки: достижим из 0 seed; max(вход,выход)=0.00 KZT; контрагентов 0; внешних кластеров 0.",
+      "features": {
+        "boundary_node": false,
+        "counterparty_count": 0,
+        "counterparty_percentile": 0.0,
+        "cross_cluster_edges": 0,
+        "direct_seed_senders": 0,
+        "external_cluster_count": 0,
+        "in_percentile": 0.0,
+        "min_seed_hops": null,
+        "nonself_in_deg": 0,
+        "nonself_out_deg": 0,
+        "observed_in_kzt": 0.0,
+        "observed_out_kzt": 0.0,
+        "observed_pass_through": null,
+        "out_percentile": 0.0,
+        "seed_reach_count": 0,
+        "truncated_by_depth": false,
+        "volume_percentile": 0.0
+      },
+      "role_candidates": [
+        {
+          "role": "peripheral",
+          "score": 0.0
+        }
+      ],
+      "priority_breakdown": {
+        "counterparties": {
+          "contribution": 0.0,
+          "signal": 0.0,
+          "weight": 0.2
+        },
+        "external_clusters": {
+          "contribution": 0.0,
+          "signal": 0.0,
+          "weight": 0.15
+        },
+        "seed_reach": {
+          "contribution": 0.0,
+          "signal": 0.0,
+          "weight": 0.35
+        },
+        "volume": {
+          "contribution": 0.0,
+          "signal": 0.0,
+          "weight": 0.3
+        }
+      },
+      "warnings": [
+        "OBSERVED_SUBGRAPH_ONLY",
+        "ROLE_IS_HYPOTHESIS",
+        "SEED_INCOMING_INCOMPLETE",
+        "NO_OBSERVED_EDGES"
+      ]
     }
   ],
   "edges": [
     {
+      "id": "100000000000000001:100000000000000002",
       "src": "100000000000000001",
       "dst": "100000000000000002",
       "sum_kzt": 10000.0,
@@ -172,6 +506,7 @@
       "depth": 1
     },
     {
+      "id": "100000000000000002:100000000000000003",
       "src": "100000000000000002",
       "dst": "100000000000000003",
       "sum_kzt": 9000.0,
@@ -208,29 +543,29 @@
       "rank": 1,
       "gid": "100000000000000002",
       "role": "transit",
-      "priority_score": 0.72645287,
-      "why": "Гипотеза для проверки: оборот=19000 KZT, PageRank=0.288050, прямых плательщиков-seed=1; роль=transit."
+      "priority_score": 0.5700000000000001,
+      "why": "Приоритет проверки: достижим из 1 seed; max(вход,выход)=10000 KZT; контрагентов 2; внешних кластеров 0."
     },
     {
       "rank": 2,
       "gid": "100000000000000001",
       "role": "peripheral",
-      "priority_score": 0.47438162,
-      "why": "Гипотеза для проверки: оборот=10000 KZT, PageRank=0.155703, прямых плательщиков-seed=0; роль=peripheral. Входящие seed неполны."
+      "priority_score": 0.43333333333333335,
+      "why": "Приоритет проверки: достижим из 0 seed; max(вход,выход)=10000 KZT; контрагентов 1; внешних кластеров 0."
     },
     {
       "rank": 3,
       "gid": "100000000000000003",
       "role": "peripheral",
-      "priority_score": 0.34407442,
-      "why": "Гипотеза для проверки: оборот=9000 KZT, PageRank=0.400545, прямых плательщиков-seed=0; роль=peripheral. Граница depth=4: нужны исходящие за пределами обхода."
+      "priority_score": 0.3033333333333333,
+      "why": "Приоритет проверки: достижим из 1 seed; max(вход,выход)=9000 KZT; контрагентов 1; внешних кластеров 0."
     },
     {
       "rank": 4,
       "gid": "100000000000000004",
       "role": "peripheral",
-      "priority_score": 0,
-      "why": "Нет наблюдаемых связей; приоритет 0 отражает нехватку данных, а не отсутствие риска."
+      "priority_score": 0.0,
+      "why": "Приоритет проверки: достижим из 0 seed; max(вход,выход)=0.00 KZT; контрагентов 0; внешних кластеров 0."
     }
   ]
 }

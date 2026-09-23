@@ -134,13 +134,13 @@ def test_invalid_core_result(data, mutation):
     if mutation == 'boundary_terminal': result['nodes'][2]['role'] = 'terminal'
     if mutation == 'no_why': result['nodes'][0].pop('why')
     if mutation == 'version': result['schema_version'] = '2.0'
-    with pytest.raises(ValueError): validate_result(result, payload)
+    with pytest.raises(ValueError): validate_result(result, payload, demo=True)
 
 
 def test_export_consistency(data, tmp_path):
     payload = payload_for(data)
     result = score(payload)
-    graph = export_outputs(payload, validate_result(result, payload), tmp_path, result['engine'], True)
+    graph = export_outputs(payload, validate_result(result, payload, demo=True), tmp_path, result['engine'], True)
     assert len(graph['nodes']) == 4
     assert sum(c['n_nodes'] for c in graph['clusters']) == 4
     assert sum(c['n_seed'] for c in graph['clusters']) == 2
@@ -187,7 +187,8 @@ def test_whole_run_timeout(tmp_path):
 
 def test_examples_are_valid():
     payload = strict_json(ROOT/'examples/input.json')
-    validate_result(strict_json(ROOT/'examples/result.json'), payload)
+    result = strict_json(ROOT/'examples/result.json')
+    validate_result(result, payload, demo='engine_version' not in result)
 
 
 @pytest.mark.parametrize('mode', ['nonzero', 'missing', 'bad_coverage', 'success'])
@@ -206,12 +207,12 @@ def test_external_core_boundary(data, tmp_path, monkeypatch, mode):
     class FakeCore:
         def __init__(self, command, **kwargs):
             assert kwargs['shell'] is False
-            assert command[1] == '--input' and command[3] == '--output'
-            input_path, output_path = Path(command[2]), Path(command[4])
+            assert len(command) == 3
+            input_path, output_path = Path(command[1]), Path(command[2])
             assert input_path.is_absolute() and output_path.is_absolute()
             assert output_path.parent != out and not output_path.exists()
             if mode in ('success', 'bad_coverage'):
-                result = score(strict_json(input_path))
+                result = cpp_result(strict_json(input_path))
                 if mode == 'bad_coverage': result['nodes'].pop()
                 write_json(output_path, result)
 
@@ -219,9 +220,10 @@ def test_external_core_boundary(data, tmp_path, monkeypatch, mode):
             return 7 if mode == 'nonzero' else 0
 
     monkeypatch.setattr(pipeline.subprocess, 'Popen', FakeCore)
+    (tmp_path/'core.exe').write_bytes(b'fake executable for subprocess contract test')
     args = SimpleNamespace(out=out, data=raw, seed=42, resolution=1.0, prepare_only=False,
                            demo=False, core=tmp_path/'core.exe', deadline=time.time()+30,
-                           core_timeout=20, top=20)
+                           core_timeout=20, top=20, core_config=None)
     if mode == 'success':
         pipeline.worker(args)
         assert len(strict_json(out/'graph.json')['nodes']) == 4
@@ -230,3 +232,66 @@ def test_external_core_boundary(data, tmp_path, monkeypatch, mode):
             pipeline.worker(args)
         assert (out/'graph.json').read_text() == 'previous successful graph'
         assert strict_json(out/'result.json') == {'stale': True}
+
+
+def cpp_result(payload):
+    """Schema-correct fixture only; not a replacement analytical engine."""
+    result = score(payload)
+    by_gid = {n['gid']: n for n in payload['nodes']}
+    result.pop('engine')
+    result['engine_version'] = 'test-fixture'
+    result['meta'] = {'config': {}}
+    for n in result['nodes']:
+        n.update(cluster_id=by_gid[n['gid']]['cluster_id'], features={}, warnings=[],
+                 role_candidates=[{'role': n['role'], 'score': n['role_score']}], priority_breakdown={})
+        n['why'] = n['why'][:200]
+    ranked = sorted(result['nodes'], key=lambda n: (-n['priority_score'], int(n['gid'])))[:20]
+    result['top_nodes'] = [{'rank': i+1, **{k: n[k] for k in ('gid', 'role', 'priority_score', 'why')}}
+                           for i, n in enumerate(ranked)]
+    return result
+
+
+@pytest.mark.parametrize('bad_gid', ['01', '+1', '-0', 'abc', '9223372036854775808', '-9223372036854775809'])
+def test_canonical_int64_only(data, bad_gid):
+    e, n, t = data
+    n['gid'] = n.gid.astype(str)
+    n.loc[0, 'gid'] = bad_gid
+    with pytest.raises(DataError, match='canonical'):
+        sanity_check(e, n, t)
+
+
+def test_cpp_cluster_and_top_validation(data):
+    payload = payload_for(data)
+    from jsonschema import validate
+    validate(payload, strict_json(ROOT/'engine/schemas/input.schema.json'))
+    result = cpp_result(payload)
+    validate_result(result, payload)
+    wrong = copy.deepcopy(result)
+    wrong['nodes'][0]['cluster_id'] += 1
+    with pytest.raises(ValueError, match='cluster_id'):
+        validate_result(wrong, payload)
+    wrong = copy.deepcopy(result)
+    wrong['top_nodes'].reverse()
+    with pytest.raises(ValueError, match='top_nodes'):
+        validate_result(wrong, payload)
+    wrong = copy.deepcopy(result)
+    wrong['nodes'][0].pop('warnings')
+    with pytest.raises(ValueError, match='schema'):
+        validate_result(wrong, payload)
+
+
+def test_numeric_ties_and_ui_fields(tmp_path):
+    payload = {'schema_version': '1.0', 'meta': {}, 'edges': [], 'nodes': [
+        {'gid': g, 'depth': 0, 'is_seed': True, 'cluster_id': i, 'flags': {'isolated': True}}
+        for i, g in enumerate(['10', '2', '-1'])]}
+    results = {n['gid']: {'gid': n['gid'], 'role': 'peripheral', 'priority_score': 0,
+                         'role_score': 0, 'evidence': 'Нет связей', 'why': 'Нет связей',
+                         'features': {'seed_reach_count': 0}, 'warnings': ['NO_OBSERVED_EDGES'],
+                         'priority_breakdown': {'volume': 0}, 'role_candidates': []}
+               for n in payload['nodes']}
+    graph = export_outputs(payload, results, tmp_path, 'cpp-1.0.0', False,
+                           engine_result={'engine_version': '1.0.0', 'meta': {'config': {'max_depth': 4}}})
+    assert [n['gid'] for n in graph['top_nodes']] == ['-1', '2', '10']
+    assert graph['meta']['is_demo'] is False
+    assert graph['meta']['config']['max_depth'] == 4
+    assert graph['nodes'][0]['features']['seed_reach_count'] == 0

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+import re
 from pathlib import Path
 
 import networkx as nx
@@ -25,6 +26,9 @@ def normalize_ids(series: pd.Series, name: str) -> pd.Series:
                 for v in series), f"{name}: identifiers must be strings or integers, not floats")
     result = series.map(str)
     require(result.map(lambda s: bool(s) and s == s.strip()).all(), f"{name}: empty/whitespace identifier")
+    require(result.map(lambda s: re.fullmatch(r'(0|[1-9][0-9]*|-[1-9][0-9]*)', s) is not None
+                       and -(2**63) <= int(s) <= 2**63-1).all(),
+            f'{name}: identifiers must be canonical signed int64 strings')
     return result
 
 

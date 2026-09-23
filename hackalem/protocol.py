@@ -54,7 +54,8 @@ def make_input(G, features, clustering, validation):
                     raise ValueError(f'nonfinite metric {k} for {r["gid"]}')
                 metrics[k] = None
         rows.append({'gid': r['gid'], 'depth': r['depth'], 'is_seed': r['is_seed'],
-                     'cluster_id': r['cluster_id'], 'metrics': metrics,
+                     'cluster_id': r['cluster_id'], **metrics,
+                     'truncated_by_depth': bool(r['truncated_by_depth']), 'metrics': metrics,
                      'flags': {k: bool(r[k]) for k in FLAGS}})
     return {'schema_version': '1.0',
             'meta': {'limitations': LIMITATIONS, 'clustering': clustering, 'validation': validation},
@@ -62,11 +63,20 @@ def make_input(G, features, clustering, validation):
             'edges': [{'src': u, 'dst': v, **a} for u, v, a in G.edges(data=True)]}
 
 
-def validate_result(result, payload):
+def validate_result(result, payload, *, demo=False):
     if not isinstance(result, dict) or result.get('schema_version') != '1.0':
         raise ValueError('result.schema_version must be 1.0')
-    if not isinstance(result.get('engine'), str) or not result['engine'].strip():
-        raise ValueError('result.engine must be nonempty text')
+    if demo:
+        if result.get('engine') != 'python-demo-v1':
+            raise ValueError('demo result.engine must be python-demo-v1')
+    else:
+        from jsonschema import Draft202012Validator
+        schema = strict_json(Path(__file__).resolve().parents[1] / 'engine/schemas/result.schema.json')
+        errors = list(Draft202012Validator(schema).iter_errors(result))
+        if errors:
+            raise ValueError(f'C++ result schema: {errors[0].message}')
+        if not result['engine_version'].strip():
+            raise ValueError('result.engine_version must be nonempty')
     if not isinstance(result.get('nodes'), list):
         raise ValueError('result.nodes must be an array')
     expected = {n['gid']: n for n in payload['nodes']}
@@ -91,7 +101,18 @@ def validate_result(result, payload):
             raise ValueError(f'{gid}: evidence exceeds 200 characters')
         if expected[gid]['flags']['truncated_by_depth'] and n['role'] == 'terminal':
             raise ValueError(f'{gid}: terminal role forbidden at truncated depth boundary')
-        found[gid] = {k: n[k] for k in ('gid', 'role', 'role_score', 'priority_score', 'evidence', 'why')}
+        fields = ['gid', 'role', 'role_score', 'priority_score', 'evidence', 'why']
+        if not demo:
+            if type(n['cluster_id']) is not int or n['cluster_id'] != expected[gid]['cluster_id']:
+                raise ValueError(f'{gid}: result cluster_id differs from Python input')
+            fields += ['cluster_id', 'features', 'role_candidates', 'priority_breakdown', 'warnings']
+        found[gid] = {k: n[k] for k in fields}
     if set(found) != set(expected):
         raise ValueError(f'result missing {len(set(expected)-set(found))} nodes')
+    if not demo:
+        ranked = sorted(found.values(), key=lambda n: (-n['priority_score'], int(n['gid'])))[:20]
+        expected_top = [{'rank': i+1, **{k: n[k] for k in ('gid', 'role', 'priority_score', 'why')}}
+                        for i, n in enumerate(ranked)]
+        if result['top_nodes'] != expected_top:
+            raise ValueError('C++ top_nodes differs from full node scores or numeric gid ordering')
     return found

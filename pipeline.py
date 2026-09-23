@@ -50,7 +50,12 @@ def worker(args):
         remaining = args.deadline - time.time()
         if remaining <= 0:
             raise TimeoutError('pipeline time budget exhausted before core')
-        core_cmd = [*command, '--input', str(stage/'input.json'), '--output', str(stage/'result.json')]
+        if args.demo:
+            core_cmd = [*command, '--input', str(stage/'input.json'), '--output', str(stage/'result.json')]
+        else:
+            core_cmd = [*command, str(stage/'input.json'), str(stage/'result.json')]
+            if args.core_config:
+                core_cmd += ['--config', str(args.core_config.resolve())]
         with (stage/'core.stdout.log').open('w', encoding='utf-8') as stdout, (stage/'core.stderr.log').open('w', encoding='utf-8') as stderr:
             process = subprocess.Popen(core_cmd, cwd=ROOT, stdout=stdout, stderr=stderr, shell=False)
             try:
@@ -64,18 +69,23 @@ def worker(args):
         if not (stage/'result.json').is_file():
             raise ValueError('core returned success without result.json')
         result = strict_json(stage/'result.json')
-        validated = validate_result(result, payload)
-        graph = export_outputs(payload, validated, stage, result['engine'], args.demo, args.top)
+        validated = validate_result(result, payload, demo=args.demo)
+        engine = result['engine'] if args.demo else 'cpp-' + result['engine_version']
+        graph = export_outputs(payload, validated, stage, engine, args.demo, args.top, result)
         write_json(stage/'validation.json', validation)
         manifest = {
-            'schema_version': '1.0', 'status': 'complete', 'demo': args.demo, 'engine': result['engine'],
+            'schema_version': '1.0', 'status': 'complete', 'demo': args.demo, 'engine': engine,
             'elapsed_worker_seconds': round(time.monotonic()-started, 3),
             'counts': {k: len(graph[k]) for k in ('nodes', 'edges', 'clusters', 'top_nodes')},
             'clustering': clustering, 'python': sys.version.split()[0],
-            'dependencies': {m: importlib.metadata.version(m) for m in ('pandas', 'numpy', 'pyarrow', 'networkx', 'scipy')},
+            'dependencies': {m: importlib.metadata.version(m) for m in ('pandas', 'numpy', 'pyarrow', 'networkx', 'scipy', 'jsonschema')},
             'source_sha256': {name: hashlib.sha256((args.data/name).read_bytes()).hexdigest()
                               for name in ('nodes.parquet', 'edges.parquet', 'transactions.parquet')},
         }
+        if not args.demo:
+            manifest['engine_sha256'] = hashlib.sha256(args.core.read_bytes()).hexdigest()
+            manifest['engine_version'] = result['engine_version']
+            manifest['engine_config'] = result['meta'].get('config')
         manifest['artifact_sha256'] = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
                                        for p in stage.iterdir() if p.suffix in ('.csv', '.json')}
         write_json(stage/'run_manifest.json', manifest)
@@ -105,10 +115,11 @@ def parse_args():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--data', type=Path, default=ROOT/'TechTask'/'data(1)'/'data')
     ap.add_argument('--out', type=Path, default=ROOT/'out')
-    modes = ap.add_mutually_exclusive_group(required=True)
+    modes = ap.add_mutually_exclusive_group()
     modes.add_argument('--core', type=Path, help='C++ executable implementing CONTRACT.md')
     modes.add_argument('--demo', action='store_true', help='explicit Python demo, not the C++ engine')
     modes.add_argument('--prepare-only', action='store_true', help='validate data and write input.json for Arthur')
+    ap.add_argument('--core-config', type=Path, help='C++ JSON rule overrides')
     ap.add_argument('--seed', type=int, default=42)
     ap.add_argument('--resolution', type=float, default=1.0)
     ap.add_argument('--top', type=int, default=20)
@@ -125,8 +136,15 @@ def parse_args():
         ap.error('--timeout cannot exceed 300 seconds')
     if args.top < 20:
         ap.error('--top must be >=20')
+    if not args.demo and not args.prepare_only and args.core is None:
+        candidates = [ROOT/'engine/build/engine.exe', ROOT/'engine/build/Release/engine.exe', ROOT/'engine/build/engine']
+        args.core = next((p for p in candidates if p.is_file()), None)
+        if args.core is None:
+            ap.error('Build the C++ engine first (see engine/README.md) or supply --core PATH; --demo is explicit')
     if args.core and not args.core.is_file():
         ap.error(f'core executable not found: {args.core}')
+    if args.core_config and (args.demo or args.prepare_only or not args.core_config.is_file()):
+        ap.error('--core-config requires a C++ run and an existing JSON file')
     return args
 
 

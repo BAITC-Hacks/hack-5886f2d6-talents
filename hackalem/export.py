@@ -13,9 +13,9 @@ CSV_COLUMNS = {
 }
 
 
-def export_outputs(payload, results, out_dir, engine, demo, top_n=20):
+def export_outputs(payload, results, out_dir, engine, demo, top_n=20, engine_result=None):
     nodes = [{**n, **results[n['gid']]} for n in payload['nodes']]
-    ranked = sorted(nodes, key=lambda n: (-n['priority_score'], n['gid']))
+    ranked = sorted(nodes, key=lambda n: (-n['priority_score'], int(n['gid'])))
     top = [{'rank': i+1, **{k: n[k] for k in ('gid', 'role', 'priority_score', 'why')}}
            for i, n in enumerate(ranked[:max(20, top_n)])]
     members = {}
@@ -38,8 +38,14 @@ def export_outputs(payload, results, out_dir, engine, demo, top_n=20):
         clusters.append({'cluster_id': cid, 'n_nodes': len(group), 'n_seed': n_seed,
                          'sum_kzt_internal': float(math.fsum(internal[cid])),
                          'top_gids': [n['gid'] for n in group[:5]], 'hypothesis': hypothesis})
-    graph = {'schema_version': '1.0', 'meta': {**payload['meta'], 'engine': engine, 'demo': demo},
-             'nodes': nodes, 'edges': payload['edges'], 'clusters': clusters, 'top_nodes': top}
+    engine_meta = engine_result.get('meta', {}) if engine_result else {}
+    meta = {**engine_meta, **payload['meta'], 'engine': engine, 'demo': demo, 'is_demo': demo,
+            'engine_meta': engine_meta}
+    if engine_result and 'engine_version' in engine_result:
+        meta['engine_version'] = engine_result['engine_version']
+    graph = {'schema_version': '1.0', 'meta': meta,
+             'nodes': nodes, 'edges': [{'id': e['src']+':'+e['dst'], **e} for e in payload['edges']],
+             'clusters': clusters, 'top_nodes': top}
     for name, rows in [('nodes_roles.csv', nodes), ('clusters.csv', clusters), ('top_nodes.csv', top)]:
         frame = pd.DataFrame(rows, columns=CSV_COLUMNS[name])
         if name == 'clusters.csv':
