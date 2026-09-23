@@ -1,6 +1,6 @@
 # Савелий — интерфейс аналитика
 
-Готовая передача от Армана: реальные файлы уже находятся в `frontend/public/data/`, C++ 1.1.0, `meta.is_demo=false`. Используй `/data/graph.json` и соседние `/data/nodes_roles.csv`, `/data/clusters.csv`, `/data/top_nodes.csv`. Подробности и проверка без UI: [frontend/README.md](../../frontend/README.md). Если разместишь проект в другой папке, сообщи путь: достаточно изменить `--out` у prepare_ui_data.py. Команда npm-запуска появится после твоего первого интерфейсного коммита.
+Готовая передача от Армана: реальные файлы уже находятся в `frontend/public/data/`, C++ 1.1.0, `meta.is_demo=false`. Используй `/data/graph.json` и соседние `/data/nodes_roles.csv`, `/data/clusters.csv`, `/data/top_nodes.csv`. Подробности и проверка без UI: [frontend/README.md](../../frontend/README.md). Если разместишь проект в другой папке, сообщи путь: достаточно изменить `--out` у prepare_ui_data.py. Интерфейс готов: cd frontend, npm ci, npm run dev. Проверка: npm test и npm run build. Браузерные сценарии и сверка поставки описаны в frontend/VERIFICATION.md.
 
 Ты отвечаешь за экран просмотра графа денежных переводов на HackAlem AI.
 Команда: Артур — C++-аналитика, Арман — Python, данные и интеграция,
