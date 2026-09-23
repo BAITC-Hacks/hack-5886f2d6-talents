@@ -1,3 +1,4 @@
+import { parseResilience, type Resilience } from './resilience';
 export const roles = ['consolidator', 'transit', 'distributor', 'terminal', 'coordinator', 'peripheral'] as const;
 export type Role = typeof roles[number];
 export const roleNames: Record<Role, string> = {
@@ -16,12 +17,13 @@ export interface Client {
   total_in: number | null; total_out: number | null; observed_in: number | null; observed_out: number | null;
   in_count: number | null; out_count: number | null; in_tx: number | null; out_tx: number | null;
   counterparties: number | null; seed_reach: number | null; min_seed_hops: number | null;
+  nonself_in?: number | null; nonself_out?: number | null; pass_through?: number | null; external_clusters?: number | null;
   depth: number | null; is_seed: boolean;
 }
 export interface Transfer { source: string; target: string; amount: number | null; transactions: number | null }
 export interface Cluster { id: string; count: number; seeds: number; amount: number; hypothesis: string }
 export interface GraphData {
-  meta: { is_demo: boolean; limitations: string[]; engine: string };
+  meta: { is_demo: boolean; limitations: string[]; engine: string; resilience?: Resilience };
   nodes: Client[]; edges: Transfer[]; top: { rank: number; gid: string }[]; clusters: Cluster[];
 }
 type Obj = Record<string, unknown>;
@@ -82,6 +84,8 @@ export function parseGraph(raw: unknown): GraphData {
       observed_in: amount(f.observed_in_kzt, 'observed_in_kzt'), observed_out: amount(f.observed_out_kzt, 'observed_out_kzt'),
       in_count: amount(metrics.in_deg, 'in_deg', true), out_count: amount(metrics.out_deg, 'out_deg', true),
       in_tx: amount(metrics.in_tx, 'in_tx', true), out_tx: amount(metrics.out_tx, 'out_tx', true),
+      nonself_in: amount(f.nonself_in_deg, 'nonself_in_deg', true), nonself_out: amount(f.nonself_out_deg, 'nonself_out_deg', true),
+      pass_through: amount(f.observed_pass_through, 'observed_pass_through'), external_clusters: amount(f.external_cluster_count, 'external_cluster_count', true),
       counterparties: amount(f.counterparty_count, 'counterparty_count', true),
       seed_reach: amount(f.seed_reach_count, 'seed_reach_count', true), min_seed_hops: amount(f.min_seed_hops, 'min_seed_hops', true),
       depth: amount(n.depth, 'depth', true) };
@@ -111,7 +115,7 @@ export function parseGraph(raw: unknown): GraphData {
   });
   const clusterIds = new Set(clusters.map(c => c.id));
   if (clusterIds.size !== clusters.length || nodes.some(n => !clusterIds.has(n.cluster))) throw new Error('Кластеры должны быть уникальны и покрывать всех клиентов');
-  return { meta: { is_demo: isDemo, limitations: strings(meta.limitations, 'meta.limitations'), engine: String(meta.engine_version ?? meta.engine ?? 'Не указан') }, nodes, edges, top, clusters };
+  return { meta: { is_demo: isDemo, limitations: strings(meta.limitations, 'meta.limitations'), engine: String(meta.engine_version ?? meta.engine ?? 'Не указан'), resilience: parseResilience(meta.resilience, ids, edges.length) }, nodes, edges, top, clusters };
 }
 export function buildNeighbors(edges: Transfer[]): Map<string, Set<string>> {
   const map = new Map<string, Set<string>>();

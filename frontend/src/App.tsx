@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Download, Filter, Info, Network, RefreshCw, Search, ShieldCheck, SlidersHorizontal, Users } from 'lucide-react';
+import ResiliencePanel from './ResiliencePanel';
+import { plainLanguage, prioritySummary } from './explanations';
 import GraphView from './GraphView';
 import TransferDetails from './TransferDetails';
 import { findTransfer, transferKey } from './transfers';
@@ -100,21 +102,22 @@ export default function App() {
     </header>
     <main>
       <section className="page-heading"><div><div className="eyebrow">ИССЛЕДОВАНИЕ СЕТИ</div><h1>Кого проверить первым</h1><p>Приоритеты, связи и объяснения в одном месте.</p></div><div className="dataset-stats"><span><strong>{number.format(data.nodes.length)}</strong>клиентов</span><span><strong>{number.format(data.edges.length)}</strong>связей</span><span><strong>{data.clusters.length}</strong>кластеров</span></div></section>
-      <div className="notice"><ShieldCheck size={17}/><span>Роли и оценки — гипотезы для проверки, а не утверждения о виновности.{data.meta.is_demo && ' Учебный режим: выводы не относятся к полному датасету.'}</span><details><summary>О данных</summary><div><p>Видна только часть переводов. Входящие seed и исходящие depth=4 могут быть неполными.</p><p>Полная выборка: внутрибанковские переводы ≥ 5 000 ₸, июль 2026, обход по исходящим на 4 шага.</p><p>Версия ядра: {data.meta.engine}.</p>{data.meta.limitations.map((s, i) => <p key={i}>{s}</p>)}</div></details></div>
+      <div className="notice"><ShieldCheck size={17}/><span>Роли и оценки — гипотезы для проверки, а не утверждения о виновности.{data.meta.is_demo && ' Учебный режим: выводы не относятся к полному датасету.'}</span><details><summary>О данных</summary><div><p>Видна только часть переводов. Входящие исходных клиентов и исходящие на четвёртом шаге выгрузки могут быть неполными.</p><p>Полная выборка: внутрибанковские переводы ≥ 5 000 ₸, июль 2026, обход по исходящим на 4 шага.</p><p>Версия ядра: {data.meta.engine}.</p>{data.meta.limitations.map((s, i) => <p key={i}>{plainLanguage(s)}</p>)}</div></details></div>
       <section className="toolbar" aria-label="Поиск и фильтры">
         <form className="search-form" onSubmit={search}><Search size={18}/><input aria-label="Поиск по точному gid" placeholder="Найти клиента по полному gid" value={query} onChange={e => setQuery(e.target.value)} autoComplete="off"/><button type="submit">Найти</button></form>
         <div className="filter-controls"><Filter size={16}/><label><span className="sr-only">Фильтр по роли</span><select aria-label="Фильтр по роли" value={role} onChange={e => { setSelectedTransfer(null); setRole(e.target.value as Role | 'all'); setLimit(50); }}><option value="all">Все роли</option>{roles.map(r => <option key={r} value={r}>{roleNames[r]}</option>)}</select></label>
         <label><span className="sr-only">Фильтр по кластеру</span><select aria-label="Фильтр по кластеру" value={cluster} onChange={e => { setSelectedTransfer(null); setCluster(e.target.value); setScope(e.target.value === 'all' ? 'all' : 'cluster'); setLimit(50); }}><option value="all">Все кластеры</option>{data.clusters.map(c => <option key={c.id} value={c.id}>Кластер {c.id} · {c.count}</option>)}</select></label><button className="icon-button" aria-label="Сбросить фильтры" onClick={reset}><RefreshCw size={16}/></button></div>
       </section>
       {searchMessage && <p className="search-message" role="status">{searchMessage}</p>}
+      {data.meta.resilience && <ResiliencePanel resilience={data.meta.resilience} onSelectClient={selectClient} onShowOriginal={() => { reset(); setScope('all'); }}/>}
       <div className="workspace">
         <aside className="priority-panel" aria-label="Список клиентов">
           <div className="panel-heading"><h2>Приоритеты</h2><span className="count">{data.top.length}</span></div>
           <div className="list-tabs"><button className={listMode === 'top' ? 'active' : ''} onClick={() => { setListMode('top'); setLimit(50); }}>Топ {data.top.length}</button><button className={listMode === 'all' ? 'active' : ''} onClick={() => { setListMode('all'); setLimit(50); }}>Все клиенты</button></div>
-          <p className="list-caption">{listMode === 'top' ? 'Порядок из аналитического пайплайна' : 'Порядок исходной выгрузки'} · {list.length}</p>
+          <p className="list-caption">{listMode === 'top' ? 'Очередь проверки из расчёта' : 'Порядок исходной выгрузки'} · {list.length}</p>
           <div className="client-list">
             {list.slice(0, limit).map(node => <button className={'client-row ' + (selected === node.gid ? 'selected' : '')} key={node.gid} onClick={() => selectClient(node.gid)} aria-pressed={selected === node.gid} aria-label={'Выбрать клиента ' + node.gid}>
-              <span className="rank">{topRanks.get(node.gid) ? String(topRanks.get(node.gid)).padStart(2, '0') : '·'}</span><span className="row-main"><span className="row-gid">{node.gid}</span><RoleLabel client={node}/><span className="row-meta">Кластер {node.cluster} · depth {node.depth ?? 'Нет данных'}</span></span><span className="row-score">{score(node.priority_score)}</span>
+              <span className="rank">{topRanks.get(node.gid) ? String(topRanks.get(node.gid)).padStart(2, '0') : '·'}</span><span className="row-main"><span className="row-gid">{node.gid}</span><RoleLabel client={node}/><span className="row-reason">{prioritySummary(node)}</span><span className="row-meta">Кластер {node.cluster} · шаг {node.depth ?? 'Нет данных'}</span></span><span className="row-score">{score(node.priority_score)}</span>
             </button>)}
             {list.length === 0 && <div className="empty-list"><Users size={25}/><p>Нет клиентов по этим фильтрам.</p><button onClick={reset}>Сбросить фильтры</button></div>}
             {list.length > limit && <button className="load-more" onClick={() => setLimit(n => n + 50)}>Показать ещё 50</button>}
@@ -132,7 +135,7 @@ export default function App() {
           </select></label>
           <GraphView nodes={visibleNodes} edges={visibleEdges} selected={selected} selectedTransfer={transfer ? transferKey(transfer) : null} onSelectTransfer={setSelectedTransfer} colorBy={colorBy} onSelect={selectClient} overview={scope === 'all'}/>
           <div className="legend">{colorBy === 'role' ? roles.map(r => <span key={r}><i style={{ background: roleColors[r] }}/>{roleNames[r]}</span>) : <><span>Цвет обозначает кластер</span>{[...new Set(visibleNodes.map(n => n.cluster))].slice(0, 12).map(c => <span key={c}><i style={{ background: clusterColor(c) }}/>Кластер {c}</span>)}{new Set(visibleNodes.map(n => n.cluster)).size > 12 && <span>Остальные — в фильтре</span>}</>}</div>
-          {scope === 'cluster' && activeCluster && <div className="cluster-summary"><strong>Кластер {activeCluster.id}</strong><span>{activeCluster.count} клиентов · {activeCluster.seeds} seed · {number.format(activeCluster.amount)} ₸ внутри</span><p>{activeCluster.hypothesis}</p></div>}
+          {scope === 'cluster' && activeCluster && <div className="cluster-summary"><strong>Кластер {activeCluster.id}</strong><span>{activeCluster.count} клиентов · {activeCluster.seeds} исходных клиентов · {number.format(activeCluster.amount)} ₸ внутри</span><p>{plainLanguage(activeCluster.hypothesis)}</p></div>}
           <div className="graph-footer">Фильтры скрывают часть связей. В карточке — полные метрики из файла.</div>
         </section>
         {transfer ? <TransferDetails key={transferKey(transfer)} transfer={transfer} reverse={reverseTransfer} onSelectClient={selectClient} onReverse={() => { if (reverseTransfer) setSelectedTransfer(transferKey(reverseTransfer)); }} onClose={() => setSelectedTransfer(null)}/> : client ? <ClientDetails key={client.gid} client={client}/> : <aside className="details-panel empty-details"><Network size={32}/><h2>Выберите клиента</h2><p>Нажмите на узел, строку списка или найдите полный gid.</p></aside>}

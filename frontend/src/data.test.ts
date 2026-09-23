@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { plainLanguage } from './explanations';
 import ClientDetails from './ClientDetails';
 import { parseGraph, buildNeighbors, neighborhood, clientLimitations } from './data';
 const example = () => JSON.parse(readFileSync(new URL('../../examples/graph.json', import.meta.url), 'utf8'));
@@ -74,7 +75,7 @@ test('preserves next actions exactly in pipeline order without deriving or dedup
   assert.equal(client.evidence, raw.nodes[0].evidence);
   assert.equal(client.priority_score, raw.nodes[0].priority_score);
   const html = renderToStaticMarkup(createElement(ClientDetails, { client }));
-  assert.ok(html.includes('<h3>Что проверить дальше</h3><ol><li>' + actions.join('</li><li>') + '</li></ol>'));
+  assert.ok(html.includes('<h3>Что проверить дальше</h3><ol><li>' + actions.map(plainLanguage).join('</li><li>') + '</li></ol>'));
 });
 test('accepts older bundles without next actions and distinguishes an explicit empty list', () => {
   const raw = example();

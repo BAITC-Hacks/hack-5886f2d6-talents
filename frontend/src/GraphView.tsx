@@ -95,6 +95,6 @@ export default function GraphView({ nodes, edges, selected, colorBy, onSelect, o
       <button aria-label="Уменьшить граф" onClick={() => graph.current?.zoom(graph.current.zoom() / 1.25)}><Minus size={17} /></button>
       <button aria-label="Показать граф целиком" onClick={() => graph.current?.fit(undefined, 48)}><Maximize size={16} /></button>
     </div>
-    <div className="graph-hint">Нажмите на связь: сумма и операции · ромб — seed · подписи: последние 8 цифр gid</div>
+    <div className="graph-hint">Нажмите на связь: сумма и операции · ромб — исходный клиент · подписи: последние 8 цифр gid</div>
   </div>;
 }
