@@ -19,7 +19,7 @@ npm ci
 npm run dev
 ```
 
-Открыть http://localhost:5173. На экране — топ-20, направленный граф, поиск точного gid, фильтры, карточка с ограничениями и экспорт трёх CSV. Для просмотра не нужны Python, компилятор, аккаунт или внешний API.
+Открыть http://localhost:5173. На экране — топ-20, направленный граф, поиск точного gid, фильтры, карточка с ограничениями и следующими действиями, суммы выбранных связей и экспорт трёх CSV. Для просмотра не нужны Python, компилятор, аккаунт или внешний API.
 
 Проверки UI: `npm test`, сборка: `npm run build`. Запуск сборки: `npm run preview` (http://localhost:4173). [Подробная инструкция](frontend/README.md), [проверка интерфейса](frontend/VERIFICATION.md), [демо на пять минут](frontend/DEMO.md).
 
@@ -27,9 +27,18 @@ npm run dev
 [frontend/public/data/](frontend/README.md). В нём все 2248 узлов, 88 кластеров,
 топ-20, полный graph.json и отчёты проверки.
 
-Повторная сверка всего ТЗ и обеих аналитических частей, включая коммит Армана
-`4a9c671`: [отчёт аудита](engine/TZ_AUDIT.md). Прошли 78 Python-тестов и
-28 тестов ядра; проверены полный пересчёт, хэши и выдача файлов для UI.
+Принят `fbec33f` с [финальным отчётом Армана](team/arman/FINAL_RUN.md).
+На ноутбуке Артура прошли 110 Python-тестов, 34 теста ядра и 22 теста UI,
+production-сборка. Полный проверочный пересчёт принятой версии занял 6.627 секунды,
+ошибок и предупреждений интеграционной проверки нет. Хэши поставки C++ 1.2.0
+и исходных данных проверены. Арман отдельно подтвердил бинарник и HTTP-выдачу;
+подготовка с проверкой пакета заняла 6.324 секунды в обновлённой чистой копии.
+Границы этого прогона описаны в его отчёте.
+Состояние командной приёмки — [техническая проверка](team/TECHNICAL_REVIEW.md).
+Сверка всех требований и внутренняя оценка по двум наборам критериев —
+[текущий аудит](team/CURRENT_REVIEW.md).
+Предыдущая сверка ТЗ, включая коммит Армана `4a9c671`, сохранена как
+[исторический отчёт](engine/TZ_AUDIT.md).
 
 ## Установка и сборка
 
@@ -73,7 +82,7 @@ python pipeline.py --prepare-only --out prepared
 
 ## Передача данных интерфейсу
 
-Готовый набор настоящего C++ 1.2.0 находится в [`frontend/public/data/`](frontend/public/data/). Интерфейс Савелия использует URL — `/data/graph.json`, `/data/nodes_roles.csv`, `/data/clusters.csv`, `/data/top_nodes.csv`. Запуск: cd frontend, npm ci, npm run dev.
+Готовый набор настоящего C++ 1.2.0 находится в [`frontend/public/data/`](frontend/public/data/). Все 2248 клиентов получили `next_actions`, которые показаны в карточках. Интерфейс Савелия использует URL — `/data/graph.json`, `/data/nodes_roles.csv`, `/data/clusters.csv`, `/data/top_nodes.csv`. Запуск: cd frontend, npm ci, npm run dev.
 
 Пересчитать и проверить этот набор одной командой:
 
@@ -101,9 +110,13 @@ python verify_outputs.py --base-url http://127.0.0.1:5173/data
 Эта команда сверяет файлы по HTTP; поиск, граф и карточки проверяются в самом
 интерфейсе. UI перед показом сверяет SHA-256 graph.json и трёх CSV с manifest;
 экспорт использует сохранённые байты открытого расчёта. Подробности —
-[frontend/README.md](frontend/README.md). Чистая установка и пересчёт проверены;
-командную проверку финальной версии на другом ноутбуке фиксируем по
-[инструкции](team/arman/REPRODUCIBILITY.md). Для защиты подготовлен
+[frontend/README.md](frontend/README.md). Арман завершил проверку: новая копия
+`9e5eff6` с новыми venv, сборкой и node_modules затем обновлена tracked-файлами
+до `859b33f`, после объединения UI проверен `2e2f385`; затронутые проверки
+повторены. Это последовательное обновление чистой базы; зависимости заново
+на каждом коммите не устанавливались. Подробности —
+[FINAL_RUN.md](team/arman/FINAL_RUN.md), команды —
+[REPRODUCIBILITY.md](team/arman/REPRODUCIBILITY.md). Для защиты подготовлен
 [разбор данных и кластеров](team/arman/DATA_AND_CLUSTERS.md).
 
 ## Результаты и интерфейс
@@ -122,7 +135,7 @@ python verify_outputs.py --base-url http://127.0.0.1:5173/data
 
 Схема UI описана в [CONTRACT.md](CONTRACT.md). Формат C++: [engine/CONTRACT.md](engine/CONTRACT.md), [схема входа](engine/schemas/input.schema.json), [схема результата](engine/schemas/result.schema.json). Исходный пример для Савелия: [team/saveliy/graph.example.json](team/saveliy/graph.example.json); примеры Python-интеграции: [examples/](examples/).
 
-В graph.json сохранены `features`, `warnings`, `role_candidates`, `priority_breakdown` и `meta.config` ядра. Роли и оценки Python не меняет. Топ упорядочивается по точному priority_score, затем числовому gid; первые 20 сверяются с C++. В JSON все gid/src/dst — строки канонического int64. Не использовать JavaScript Number для идентификаторов.
+В graph.json сохранены `features`, `warnings`, `role_candidates`, `priority_breakdown`, `next_actions` и `meta.config` ядра. Роли, оценки и следующие действия Python не меняет. Топ упорядочивается по точному priority_score, затем числовому gid; первые 20 сверяются с C++. В JSON все gid/src/dst — строки канонического int64. Не использовать JavaScript Number для идентификаторов.
 
 CSV — UTF-8, запятая, стандартное экранирование, ровно обязательные колонки. top_gids — JSON-массив строк внутри ячейки; при чтении используйте `dtype={"gid": str}`. На полном датасете топ содержит минимум 20 узлов, на маленьком тестовом — все доступные.
 
