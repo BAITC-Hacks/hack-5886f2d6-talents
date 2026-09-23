@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "n_nodes": 2248,
+  "n_edges": 3119,
+  "n_isolated": 19,
+  "n_clusters": 88,
+  "engine_version": "1.1.0",
+  "failures": [],
+  "warnings": [],
+  "elapsed_wall_seconds": 2.914
+}
