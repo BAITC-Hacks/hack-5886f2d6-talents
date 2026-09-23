@@ -11,6 +11,7 @@
 | Подключить Python к C++ | [Контракт ядра](../engine/CONTRACT.md) |
 | Подключить UI и выгрузки | [Общий контракт](../CONTRACT.md) |
 | Запустить интерфейс | [Frontend](../frontend/README.md) |
+| Проверить интерфейс на поставке 1.3.0 | [Приёмка UI](../frontend/RESILIENCE_CHECK.md) |
 | Пройти демонстрацию | [Сценарий](../frontend/DEMO.md), [контрольные случаи](../team/DEMO_CASES.md) |
 | Проверить пользовательский сценарий | [Протокол приёмки](../team/USABILITY_CHECK.md) |
 | Найти текущее задание участника | [Команда](../team/README.md), [план до дедлайна](../team/LAST_80_MINUTES.md) |
